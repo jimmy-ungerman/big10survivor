@@ -196,8 +196,7 @@ export default function WeekPicker() {
         </div>
         <div className="text-right">
           <div className="text-sm text-gray-300">
-            <span className="font-semibold text-white">{myPicks.length}</span>
-            <span className="text-gray-500">/2</span> picks this week
+            <span className="font-semibold text-white">{myPicks.length}</span> {myPicks.length === 1 ? 'pick' : 'picks'} this week
           </div>
           <div className="text-xs text-gray-500 mt-0.5">{teamsRemaining} teams remaining</div>
           <div className={`text-xs mt-0.5 font-medium ${doublePickWeeksNeeded === 0 ? 'text-green-500' : 'text-amber-400'}`}>
@@ -207,6 +206,69 @@ export default function WeekPicker() {
           </div>
         </div>
       </div>
+
+      {/* Split the pot — only shown once at least one player has been eliminated */}
+      {splitData && splitData.aliveCount < splitData.totalPlayers && (
+        <div className={`border rounded-xl overflow-hidden ${
+          splitData.consensus
+            ? 'bg-green-950/20 border-green-700'
+            : 'bg-gray-900 border-gray-800'
+        }`}>
+          <div className="px-4 py-3 border-b border-gray-800">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Split the Pot?</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Requires 100% agreement from all alive players</p>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-semibold text-white">${splitData.totalPot.toLocaleString()} total</div>
+                <div className="text-xs text-gray-400">${splitData.splitAmount.toLocaleString()} each ({splitData.aliveCount} players)</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-4 py-3">
+            {splitData.consensus ? (
+              <div className="text-center py-2">
+                <div className="text-green-400 font-semibold text-sm">All players agree — split the pot!</div>
+                <div className="text-green-300 text-lg font-bold mt-1">${splitData.splitAmount.toLocaleString()} each</div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-4">
+                <div className="text-xs text-gray-400">
+                  {splitData.yesVotes} of {splitData.aliveCount} alive player{splitData.aliveCount !== 1 ? 's' : ''} voted yes
+                </div>
+                {!user.isEliminated && (
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleSplitVote(true)}
+                      disabled={votingInProgress || splitData.myVote === true}
+                      className={`text-sm px-4 py-1.5 rounded-lg border font-medium transition-colors disabled:opacity-50 ${
+                        splitData.myVote === true
+                          ? 'bg-green-700/40 border-green-600 text-green-300'
+                          : 'border-green-800 text-green-400 hover:bg-green-950/40'
+                      }`}
+                    >
+                      {splitData.myVote === true ? 'Voted Yes' : 'Yes'}
+                    </button>
+                    <button
+                      onClick={() => handleSplitVote(false)}
+                      disabled={votingInProgress || splitData.myVote === false}
+                      className={`text-sm px-4 py-1.5 rounded-lg border font-medium transition-colors disabled:opacity-50 ${
+                        splitData.myVote === false
+                          ? 'bg-red-900/40 border-red-700 text-red-300'
+                          : 'border-gray-700 text-gray-400 hover:bg-gray-800'
+                      }`}
+                    >
+                      {splitData.myVote === false ? 'Voted No' : 'No'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Eliminated banner */}
       {user.isEliminated && (
@@ -383,69 +445,6 @@ export default function WeekPicker() {
           );
         })}
       </div>
-
-      {/* Split the pot */}
-      {splitData && (
-        <div className={`border rounded-xl overflow-hidden ${
-          splitData.consensus
-            ? 'bg-green-950/20 border-green-700'
-            : 'bg-gray-900 border-gray-800'
-        }`}>
-          <div className="px-4 py-3 border-b border-gray-800">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-white">Split the Pot?</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Requires 100% agreement from all alive players</p>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-white">${splitData.totalPot.toLocaleString()} total</div>
-                <div className="text-xs text-gray-400">${splitData.splitAmount.toLocaleString()} each ({splitData.aliveCount} players)</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="px-4 py-3">
-            {splitData.consensus ? (
-              <div className="text-center py-2">
-                <div className="text-green-400 font-semibold text-sm">All players agree — split the pot!</div>
-                <div className="text-green-300 text-lg font-bold mt-1">${splitData.splitAmount.toLocaleString()} each</div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between gap-4">
-                <div className="text-xs text-gray-400">
-                  {splitData.yesVotes} of {splitData.aliveCount} alive player{splitData.aliveCount !== 1 ? 's' : ''} voted yes
-                </div>
-                {!user.isEliminated && (
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => handleSplitVote(true)}
-                      disabled={votingInProgress || splitData.myVote === true}
-                      className={`text-sm px-4 py-1.5 rounded-lg border font-medium transition-colors disabled:opacity-50 ${
-                        splitData.myVote === true
-                          ? 'bg-green-700/40 border-green-600 text-green-300'
-                          : 'border-green-800 text-green-400 hover:bg-green-950/40'
-                      }`}
-                    >
-                      {splitData.myVote === true ? 'Voted Yes' : 'Yes'}
-                    </button>
-                    <button
-                      onClick={() => handleSplitVote(false)}
-                      disabled={votingInProgress || splitData.myVote === false}
-                      className={`text-sm px-4 py-1.5 rounded-lg border font-medium transition-colors disabled:opacity-50 ${
-                        splitData.myVote === false
-                          ? 'bg-red-900/40 border-red-700 text-red-300'
-                          : 'border-gray-700 text-gray-400 hover:bg-gray-800'
-                      }`}
-                    >
-                      {splitData.myVote === false ? 'Voted No' : 'No'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Remaining teams panel */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
