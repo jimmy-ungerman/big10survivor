@@ -126,6 +126,20 @@ router.post('/', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'You can only make 2 picks per week' });
   }
 
+  // If this would be a second pick this week (a double), enforce the 5-week cap
+  if (weekPicks.length === 1) {
+    const { rows: doubleWeeks } = query(
+      `SELECT week_number FROM picks
+       WHERE user_id = $1 AND season = $2
+       GROUP BY week_number
+       HAVING COUNT(*) >= 2`,
+      [userId, game.season]
+    );
+    if (doubleWeeks.length >= 5) {
+      return res.status(400).json({ error: 'You have already used all 5 double-pick weeks this season' });
+    }
+  }
+
   // Insert pick
   const result = query(
     `INSERT INTO picks (user_id, game_id, week_number, season, picked_team)

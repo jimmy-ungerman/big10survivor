@@ -22,7 +22,7 @@ function getStatusLabel(status) {
   return null;
 }
 
-function TeamButton({ teamSide, teamName, teamAbbr, isBigTen, isUsed, isSelected, isGameLocked, isGameComplete, onSelect, pickedSide }) {
+function TeamButton({ teamSide, teamName, teamAbbr, isBigTen, isUsed, isSelected, isGameLocked, isGameComplete, isDoubleCapped, onSelect, pickedSide }) {
   if (!isBigTen) {
     return (
       <div className="flex-1 px-3 py-4 text-center">
@@ -34,7 +34,7 @@ function TeamButton({ teamSide, teamName, teamAbbr, isBigTen, isUsed, isSelected
   }
 
   const isPickedByMe = pickedSide === teamSide;
-  const isDisabled = isUsed || isGameLocked || isGameComplete || (pickedSide && !isPickedByMe);
+  const isDisabled = isUsed || isGameLocked || isGameComplete || (pickedSide && !isPickedByMe) || (isDoubleCapped && !isPickedByMe);
 
   let buttonClass = 'flex-1 px-3 py-4 rounded-lg text-center transition-all border ';
   if (isPickedByMe) {
@@ -78,6 +78,7 @@ export default function WeekPicker() {
   const [showRemainingTeams, setShowRemainingTeams] = useState(false);
   const [splitData, setSplitData] = useState(null);
   const [votingInProgress, setVotingInProgress] = useState(false);
+  const [doublePickWeeksUsed, setDoublePickWeeksUsed] = useState(0);
 
   const loadData = useCallback(async () => {
     try {
@@ -98,11 +99,20 @@ export default function WeekPicker() {
 
       if (splitResult) setSplitData(splitResult);
 
-      // Load my teams
+      // Load my teams + season picks (for double-pick week count)
       if (gamesData.season) {
-        const teamsData = await api.getMyTeams(gamesData.season);
+        const [teamsData, seasonPicksData] = await Promise.all([
+          api.getMyTeams(gamesData.season),
+          api.getMySeasonPicks(gamesData.season),
+        ]);
         setUsedTeams(teamsData.usedTeams || []);
         setRemainingTeams(teamsData.remainingTeams || []);
+
+        const weekCounts = {};
+        for (const p of (seasonPicksData.picks || [])) {
+          weekCounts[p.week_number] = (weekCounts[p.week_number] || 0) + 1;
+        }
+        setDoublePickWeeksUsed(Object.values(weekCounts).filter(c => c >= 2).length);
       }
     } catch (err) {
       setError('Failed to load games. Please try again.');
@@ -173,6 +183,8 @@ export default function WeekPicker() {
   const weeksRemaining = week ? TOTAL_WEEKS - week : 0;
   const teamsRemaining = remainingTeams.length;
   const needsDoublePick = teamsRemaining <= weeksRemaining && weeksRemaining > 0;
+  const atDoubleCap = doublePickWeeksUsed >= 5 && myPicks.length >= 1;
+  const doublePickWeeksNeeded = Math.max(0, 5 - doublePickWeeksUsed);
 
   return (
     <div className="space-y-6">
@@ -188,6 +200,11 @@ export default function WeekPicker() {
             <span className="text-gray-500">/2</span> picks this week
           </div>
           <div className="text-xs text-gray-500 mt-0.5">{teamsRemaining} teams remaining</div>
+          <div className={`text-xs mt-0.5 font-medium ${doublePickWeeksNeeded === 0 ? 'text-green-500' : 'text-amber-400'}`}>
+            {doublePickWeeksNeeded === 0
+              ? 'All 2-team weeks accounted for'
+              : `${doublePickWeeksNeeded} more 2-team week${doublePickWeeksNeeded !== 1 ? 's' : ''} needed`}
+          </div>
         </div>
       </div>
 
@@ -333,6 +350,7 @@ export default function WeekPicker() {
                   isSelected={myPick?.picked_team === 'away'}
                   isGameLocked={isLocked}
                   isGameComplete={isComplete}
+                  isDoubleCapped={atDoubleCap}
                   onSelect={(side) => handlePick(game.id, side)}
                   pickedSide={myPick?.picked_team}
                 />
@@ -350,6 +368,7 @@ export default function WeekPicker() {
                   isSelected={myPick?.picked_team === 'home'}
                   isGameLocked={isLocked}
                   isGameComplete={isComplete}
+                  isDoubleCapped={atDoubleCap}
                   onSelect={(side) => handlePick(game.id, side)}
                   pickedSide={myPick?.picked_team}
                 />
