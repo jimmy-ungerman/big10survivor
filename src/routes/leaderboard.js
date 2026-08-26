@@ -91,7 +91,7 @@ router.get('/', requireAuth, (req, res) => {
     return {
       id: user.id,
       username: user.username,
-      fullName: user.full_name,
+      fullName: req.user.isAdmin ? user.full_name : undefined,
       isAdmin: user.is_admin === 1,
       isEliminated: user.is_eliminated === 1,
       eliminatedWeek: user.eliminated_week,
