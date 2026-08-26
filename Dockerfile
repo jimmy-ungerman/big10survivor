@@ -22,6 +22,7 @@ RUN npm ci --omit=dev
 # Copy built frontend and backend source
 COPY --from=builder /app/dist ./dist
 COPY src ./src
+COPY shared ./shared
 
 # SQLite database lives here; mount a volume to persist it
 VOLUME ["/app/data"]
