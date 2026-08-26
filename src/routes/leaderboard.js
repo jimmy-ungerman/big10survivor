@@ -10,7 +10,7 @@ const TOTAL_WEEKS = 13;
 
 router.get('/', requireAuth, (req, res) => {
   const { rows: users } = query(
-    'SELECT id, username, is_admin, is_eliminated, eliminated_week, is_paid, created_at FROM users ORDER BY created_at ASC'
+    'SELECT id, username, full_name, is_admin, is_eliminated, eliminated_week, is_paid, created_at FROM users ORDER BY created_at ASC'
   );
 
   // Get current week/season
@@ -91,6 +91,7 @@ router.get('/', requireAuth, (req, res) => {
     return {
       id: user.id,
       username: user.username,
+      fullName: user.full_name,
       isAdmin: user.is_admin === 1,
       isEliminated: user.is_eliminated === 1,
       eliminatedWeek: user.eliminated_week,

@@ -14,14 +14,19 @@ const COOKIE_OPTS = {
 };
 
 router.post('/register', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, fullName } = req.body;
 
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password required' });
+  if (!username || !password || !fullName) {
+    return res.status(400).json({ error: 'Full name, username, and password required' });
   }
 
   if (username.length < 2 || username.length > 30) {
     return res.status(400).json({ error: 'Username must be 2-30 characters' });
+  }
+
+  const trimmedFullName = fullName.trim();
+  if (trimmedFullName.length < 2 || trimmedFullName.length > 60) {
+    return res.status(400).json({ error: 'Full name must be 2-60 characters' });
   }
 
   if (password.length < 4) {
@@ -41,8 +46,8 @@ router.post('/register', async (req, res) => {
   const passwordHash = await bcrypt.hash(password, 10);
 
   const result = query(
-    'INSERT INTO users (username, password_hash, is_admin) VALUES ($1, $2, $3)',
-    [username, passwordHash, isAdmin]
+    'INSERT INTO users (username, password_hash, full_name, is_admin) VALUES ($1, $2, $3, $4)',
+    [username, passwordHash, trimmedFullName, isAdmin]
   );
 
   const userId = result.lastInsertRowid;
@@ -54,7 +59,7 @@ router.post('/register', async (req, res) => {
   );
 
   res.cookie('token', token, COOKIE_OPTS);
-  res.json({ user: { id: userId, username, isAdmin: isAdmin === 1 } });
+  res.json({ user: { id: userId, username, fullName: trimmedFullName, isAdmin: isAdmin === 1 } });
 });
 
 router.post('/login', async (req, res) => {
@@ -87,6 +92,7 @@ router.post('/login', async (req, res) => {
     user: {
       id: user.id,
       username: user.username,
+      fullName: user.full_name,
       isAdmin: user.is_admin === 1,
       isEliminated: user.is_eliminated === 1,
       eliminatedWeek: user.eliminated_week,
@@ -113,6 +119,7 @@ router.get('/me', (req, res) => {
       user: {
         id: user.id,
         username: user.username,
+        fullName: user.full_name,
         isAdmin: user.is_admin === 1,
         isEliminated: user.is_eliminated === 1,
         eliminatedWeek: user.eliminated_week,
