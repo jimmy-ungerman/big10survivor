@@ -47,21 +47,28 @@ jobs:
           LATEST=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "tag=${LATEST}" >> "$GITHUB_OUTPUT"
 
+      # Commits already merged to the base branch but never actually released
+      # (e.g. a prior Release run failed) still count toward the next version,
+      # since semantic-release itself walks everything since the last tag —
+      # not just this PR's commits. `HEAD` here is the PR's merge-ref checkout
+      # (base + PR head merged), so this covers both.
+      - name: Collect unreleased commit messages
+        id: unreleased
+        run: |
+          git log "${{ steps.latest-tag.outputs.tag }}..HEAD" --no-merges --format='%B%x00' > /tmp/unreleased-commits.txt
+
       - name: Compute and post release preview
         uses: actions/github-script@v7
         with:
           script: |
             const latestTag = '${{ steps.latest-tag.outputs.tag }}';
 
-            const { data: commits } = await github.rest.pulls.listCommits({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number,
-            });
+            const fs = require('fs');
+            const raw = fs.readFileSync('/tmp/unreleased-commits.txt', 'utf8');
+            const messages = raw.split('\0').map(s => s.trim()).filter(Boolean);
 
             let bump = null;
-            for (const { commit } of commits) {
-              const msg = commit.message;
+            for (const msg of messages) {
               if (/BREAKING CHANGE/.test(msg) || /^[a-z]+(\(.+\))?!:/.test(msg)) {
                 bump = 'major';
                 break;
