@@ -1,24 +1,10 @@
 import axios from 'axios';
+import { BIG_TEN_TEAMS, isBigTenTeam, normalizeBigTenName } from '../../shared/bigTenTeams.js';
 
 const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard';
 const BIG_TEN_GROUP_ID = '5';
 
-export const BIG_TEN_TEAMS = [
-  'Illinois', 'Indiana', 'Iowa', 'Maryland', 'Michigan', 'Michigan State',
-  'Minnesota', 'Nebraska', 'Northwestern', 'Ohio State', 'Penn State',
-  'Purdue', 'Rutgers', 'Wisconsin', 'Oregon', 'UCLA', 'USC', 'Washington'
-];
-
-export function isBigTenTeam(teamName) {
-  return BIG_TEN_TEAMS.some(t => teamName.toLowerCase().includes(t.toLowerCase()));
-}
-
-export function normalizeBigTenName(teamName) {
-  for (const t of BIG_TEN_TEAMS) {
-    if (teamName.toLowerCase().includes(t.toLowerCase())) return t;
-  }
-  return null;
-}
+export { BIG_TEN_TEAMS, isBigTenTeam, normalizeBigTenName };
 
 function parseStatus(espnStatus) {
   if (!espnStatus) return 'scheduled';

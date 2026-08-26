@@ -1,11 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../api/index.js';
-
-const BIG_TEN_TEAMS = [
-  'Illinois', 'Indiana', 'Iowa', 'Maryland', 'Michigan', 'Michigan State',
-  'Minnesota', 'Nebraska', 'Northwestern', 'Ohio State', 'Penn State',
-  'Purdue', 'Rutgers', 'Wisconsin', 'Oregon', 'UCLA', 'USC', 'Washington',
-];
+import { BIG_TEN_TEAMS, normalizeBigTenName } from '../../../shared/bigTenTeams.js';
 
 const TEAM_ABBR = {
   'Illinois': 'ILL', 'Indiana': 'IND', 'Iowa': 'IOWA', 'Maryland': 'MD',
@@ -14,14 +9,6 @@ const TEAM_ABBR = {
   'Penn State': 'PSU', 'Purdue': 'PUR', 'Rutgers': 'RUT', 'Wisconsin': 'WIS',
   'Oregon': 'ORE', 'UCLA': 'UCLA', 'USC': 'USC', 'Washington': 'WASH',
 };
-
-function normalizeBigTenName(name) {
-  if (!name) return null;
-  for (const t of BIG_TEN_TEAMS) {
-    if (name.toLowerCase().includes(t.toLowerCase())) return t;
-  }
-  return null;
-}
 
 export default function PlanningSheet() {
   const [loading, setLoading] = useState(true);
