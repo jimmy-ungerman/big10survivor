@@ -1,12 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api/index.js';
 import { useAuth } from '../App.jsx';
-
-const BIG_TEN_TEAMS = [
-  'Illinois', 'Indiana', 'Iowa', 'Maryland', 'Michigan', 'Michigan State',
-  'Minnesota', 'Nebraska', 'Northwestern', 'Ohio State', 'Penn State',
-  'Purdue', 'Rutgers', 'Wisconsin', 'Oregon', 'UCLA', 'USC', 'Washington'
-];
+import { BIG_TEN_TEAMS } from '../../../shared/bigTenTeams.js';
 
 function formatKickoff(dateStr) {
   const d = new Date(dateStr);
