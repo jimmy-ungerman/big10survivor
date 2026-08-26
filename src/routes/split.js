@@ -4,7 +4,7 @@ import { query } from '../db/index.js';
 
 const router = Router();
 
-const ENTRY_FEE = Number(process.env.ENTRY_FEE) || 10;
+const ENTRY_FEE = Number(process.env.ENTRY_FEE) || 25;
 
 router.get('/', requireAuth, (req, res) => {
   const userId = req.user.userId;
