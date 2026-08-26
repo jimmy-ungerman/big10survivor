@@ -73,6 +73,7 @@ export default function Leaderboard() {
   const [editingName, setEditingName] = useState(null);
   const [nameDraft, setNameDraft] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -107,18 +108,22 @@ export default function Leaderboard() {
   const startEditingName = (player) => {
     setEditingName(player.id);
     setNameDraft(player.fullName || '');
+    setNameError('');
   };
 
   const handleSaveName = async (player) => {
     if (nameDraft.trim().length < 2) return;
     setSavingName(true);
+    setNameError('');
     try {
       const { fullName } = await api.setUserFullName(player.id, nameDraft.trim());
       setLeaderboard(prev => prev.map(p =>
         p.id === player.id ? { ...p, fullName } : p
       ));
       setEditingName(null);
-    } catch {}
+    } catch (err) {
+      setNameError(err.message || 'Failed to save name');
+    }
     setSavingName(false);
   };
 
@@ -187,31 +192,36 @@ export default function Leaderboard() {
             </div>
 
             {user.isAdmin && editingName === player.id && (
-              <div className="flex items-center gap-2 mt-1.5">
-                <input
-                  type="text"
-                  value={nameDraft}
-                  onChange={e => setNameDraft(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSaveName(player)}
-                  placeholder="Full name"
-                  autoFocus
-                  minLength={2}
-                  maxLength={60}
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                />
-                <button
-                  onClick={() => handleSaveName(player)}
-                  disabled={savingName || nameDraft.trim().length < 2}
-                  className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40"
-                >
-                  {savingName ? 'Saving...' : 'Save'}
-                </button>
-                <button
-                  onClick={() => setEditingName(null)}
-                  className="text-xs text-gray-600 hover:text-gray-300"
-                >
-                  Cancel
-                </button>
+              <div className="mt-1.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={nameDraft}
+                    onChange={e => setNameDraft(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSaveName(player)}
+                    placeholder="Full name"
+                    autoFocus
+                    minLength={2}
+                    maxLength={60}
+                    className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={() => handleSaveName(player)}
+                    disabled={savingName || nameDraft.trim().length < 2}
+                    className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40"
+                  >
+                    {savingName ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => { setEditingName(null); setNameError(''); }}
+                    className="text-xs text-gray-600 hover:text-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                {nameError && (
+                  <div className="text-xs text-red-400 mt-1">{nameError}</div>
+                )}
               </div>
             )}
 
@@ -320,31 +330,36 @@ export default function Leaderboard() {
                     </div>
 
                     {user.isAdmin && editingName === player.id && (
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <input
-                          type="text"
-                          value={nameDraft}
-                          onChange={e => setNameDraft(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && handleSaveName(player)}
-                          placeholder="Full name"
-                          autoFocus
-                          minLength={2}
-                          maxLength={60}
-                          className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                        />
-                        <button
-                          onClick={() => handleSaveName(player)}
-                          disabled={savingName || nameDraft.trim().length < 2}
-                          className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40"
-                        >
-                          {savingName ? 'Saving...' : 'Save'}
-                        </button>
-                        <button
-                          onClick={() => setEditingName(null)}
-                          className="text-xs text-gray-600 hover:text-gray-300"
-                        >
-                          Cancel
-                        </button>
+                      <div className="mt-1.5">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={nameDraft}
+                            onChange={e => setNameDraft(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleSaveName(player)}
+                            placeholder="Full name"
+                            autoFocus
+                            minLength={2}
+                            maxLength={60}
+                            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                          />
+                          <button
+                            onClick={() => handleSaveName(player)}
+                            disabled={savingName || nameDraft.trim().length < 2}
+                            className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40"
+                          >
+                            {savingName ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            onClick={() => { setEditingName(null); setNameError(''); }}
+                            className="text-xs text-gray-600 hover:text-gray-300"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        {nameError && (
+                          <div className="text-xs text-red-400 mt-1">{nameError}</div>
+                        )}
                       </div>
                     )}
 
