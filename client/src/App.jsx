@@ -40,8 +40,8 @@ export default function App() {
     navigate('/');
   };
 
-  const register = async (username, password) => {
-    const data = await api.register(username, password);
+  const register = async (username, password, fullName) => {
+    const data = await api.register(username, password, fullName);
     setUser(data.user);
     navigate('/');
   };

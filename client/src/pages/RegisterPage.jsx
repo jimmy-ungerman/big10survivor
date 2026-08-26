@@ -4,6 +4,7 @@ import { useAuth } from '../App.jsx';
 
 export default function RegisterPage() {
   const { register } = useAuth();
+  const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -26,7 +27,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await register(username, password);
+      await register(username, password, fullName);
     } catch (err) {
       setError(err.message || 'Registration failed');
     } finally {
@@ -46,6 +47,23 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1.5">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={e => setFullName(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="Your full name"
+                required
+                autoFocus
+                minLength={2}
+                maxLength={60}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5">
                 Username
               </label>
               <input
@@ -55,7 +73,6 @@ export default function RegisterPage() {
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 placeholder="Choose a username"
                 required
-                autoFocus
                 minLength={2}
                 maxLength={30}
               />

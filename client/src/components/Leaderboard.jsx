@@ -70,6 +70,9 @@ export default function Leaderboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [togglingPaid, setTogglingPaid] = useState(null);
+  const [editingName, setEditingName] = useState(null);
+  const [nameDraft, setNameDraft] = useState('');
+  const [savingName, setSavingName] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -99,6 +102,24 @@ export default function Leaderboard() {
       ));
     } catch {}
     setTogglingPaid(null);
+  };
+
+  const startEditingName = (player) => {
+    setEditingName(player.id);
+    setNameDraft(player.fullName || '');
+  };
+
+  const handleSaveName = async (player) => {
+    if (nameDraft.trim().length < 2) return;
+    setSavingName(true);
+    try {
+      const { fullName } = await api.setUserFullName(player.id, nameDraft.trim());
+      setLeaderboard(prev => prev.map(p =>
+        p.id === player.id ? { ...p, fullName } : p
+      ));
+      setEditingName(null);
+    } catch {}
+    setSavingName(false);
   };
 
   if (loading) {
@@ -137,6 +158,9 @@ export default function Leaderboard() {
               }`}>
                 {player.username}
               </span>
+              {player.fullName && (
+                <span className="text-xs text-gray-500">{player.fullName}</span>
+              )}
               {isMe && <span className="text-xs text-blue-500">(you)</span>}
               {player.isAdmin && <span className="text-xs text-purple-400">admin</span>}
               {user.isAdmin && (player.isPaid
@@ -152,7 +176,44 @@ export default function Leaderboard() {
                   {togglingPaid === player.id ? '...' : (player.isPaid ? 'Mark unpaid' : 'Mark paid')}
                 </button>
               )}
+              {user.isAdmin && editingName !== player.id && (
+                <button
+                  onClick={() => startEditingName(player)}
+                  className="text-xs text-gray-600 hover:text-gray-300 transition-colors"
+                >
+                  {player.fullName ? 'Edit name' : 'Add name'}
+                </button>
+              )}
             </div>
+
+            {user.isAdmin && editingName === player.id && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <input
+                  type="text"
+                  value={nameDraft}
+                  onChange={e => setNameDraft(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveName(player)}
+                  placeholder="Full name"
+                  autoFocus
+                  minLength={2}
+                  maxLength={60}
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                />
+                <button
+                  onClick={() => handleSaveName(player)}
+                  disabled={savingName || nameDraft.trim().length < 2}
+                  className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40"
+                >
+                  {savingName ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => setEditingName(null)}
+                  className="text-xs text-gray-600 hover:text-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
 
             {/* This week's picks */}
             {player.currentWeekPicks.length > 0 && (
@@ -242,10 +303,50 @@ export default function Leaderboard() {
                       <span className="font-semibold text-gray-500 line-through">
                         {player.username}
                       </span>
+                      {player.fullName && (
+                        <span className="text-xs text-gray-600">{player.fullName}</span>
+                      )}
                       <span className="text-xs text-red-500 bg-red-950/40 border border-red-900 px-1.5 py-0.5 rounded font-medium">
                         Out — Week {player.eliminatedWeek}
                       </span>
+                      {user.isAdmin && editingName !== player.id && (
+                        <button
+                          onClick={() => startEditingName(player)}
+                          className="text-xs text-gray-600 hover:text-gray-300 transition-colors"
+                        >
+                          {player.fullName ? 'Edit name' : 'Add name'}
+                        </button>
+                      )}
                     </div>
+
+                    {user.isAdmin && editingName === player.id && (
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <input
+                          type="text"
+                          value={nameDraft}
+                          onChange={e => setNameDraft(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleSaveName(player)}
+                          placeholder="Full name"
+                          autoFocus
+                          minLength={2}
+                          maxLength={60}
+                          className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                        />
+                        <button
+                          onClick={() => handleSaveName(player)}
+                          disabled={savingName || nameDraft.trim().length < 2}
+                          className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40"
+                        >
+                          {savingName ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => setEditingName(null)}
+                          className="text-xs text-gray-600 hover:text-gray-300"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
 
                     {/* Losing picks */}
                     {player.eliminationPicks.length > 0 && (
