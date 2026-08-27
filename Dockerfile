@@ -1,5 +1,5 @@
 # ── Stage 1: build the React frontend ──────────────────────────────────────
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ RUN npm run build
 
 
 # ── Stage 2: production image ───────────────────────────────────────────────
-FROM node:22-alpine AS production
+FROM node:24-alpine AS production
 
 WORKDIR /app
 
