@@ -17,7 +17,7 @@ function getStatusLabel(status) {
   return null;
 }
 
-function TeamButton({ teamSide, teamName, teamAbbr, teamRank, isBigTen, isUsed, isSelected, isGameLocked, isGameComplete, isDoubleCapped, onSelect, pickedSide }) {
+function TeamButton({ teamSide, teamName, teamAbbr, teamRank, isBigTen, isUsed, isSelected, isGameLocked, isGameComplete, isDoubleCapped, onSelect, onDeselect, pickedSide }) {
   if (!isBigTen) {
     return (
       <div className="flex-1 px-3 py-4 text-center">
@@ -36,7 +36,7 @@ function TeamButton({ teamSide, teamName, teamAbbr, teamRank, isBigTen, isUsed, 
 
   let buttonClass = 'flex-1 px-3 py-4 rounded-lg text-center transition-all border ';
   if (isPickedByMe) {
-    buttonClass += 'bg-blue-600/20 border-blue-500 text-blue-300';
+    buttonClass += 'bg-blue-600/20 border-blue-500 text-blue-300 hover:border-red-500 hover:bg-red-900/20';
   } else if (isDisabled) {
     buttonClass += 'bg-gray-800/50 border-gray-700 text-gray-500 cursor-not-allowed opacity-60';
   } else {
@@ -45,8 +45,9 @@ function TeamButton({ teamSide, teamName, teamAbbr, teamRank, isBigTen, isUsed, 
 
   return (
     <button
-      onClick={() => !isDisabled && onSelect(teamSide)}
+      onClick={() => !isDisabled && (isPickedByMe ? onDeselect() : onSelect(teamSide))}
       disabled={isDisabled}
+      title={isPickedByMe ? 'Click to remove this pick' : undefined}
       className={buttonClass}
     >
       <div className="text-xs text-gray-400 uppercase font-medium mb-1">{teamAbbr}</div>
@@ -58,7 +59,7 @@ function TeamButton({ teamSide, teamName, teamAbbr, teamRank, isBigTen, isUsed, 
         <div className="text-xs text-amber-500/80 mt-1">Already used</div>
       )}
       {isPickedByMe && (
-        <div className="text-xs text-blue-400 mt-1 font-medium">Your pick</div>
+        <div className="text-xs text-blue-400 mt-1 font-medium">Your pick · click to remove</div>
       )}
     </button>
   );
@@ -416,6 +417,7 @@ export default function WeekPicker() {
                   isGameComplete={isComplete}
                   isDoubleCapped={atDoubleCap}
                   onSelect={(side) => handlePick(game.id, side)}
+                  onDeselect={() => myPick && handleDelete(myPick.id)}
                   pickedSide={myPick?.picked_team}
                 />
 
@@ -435,6 +437,7 @@ export default function WeekPicker() {
                   isGameComplete={isComplete}
                   isDoubleCapped={atDoubleCap}
                   onSelect={(side) => handlePick(game.id, side)}
+                  onDeselect={() => myPick && handleDelete(myPick.id)}
                   pickedSide={myPick?.picked_team}
                 />
               </div>
