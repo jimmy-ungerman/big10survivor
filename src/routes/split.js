@@ -1,10 +1,9 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { query } from '../db/index.js';
+import { ENTRY_FEE } from '../config.js';
 
 const router = Router();
-
-const ENTRY_FEE = Number(process.env.ENTRY_FEE) || 25;
 
 router.get('/', requireAuth, (req, res) => {
   const userId = req.user.userId;

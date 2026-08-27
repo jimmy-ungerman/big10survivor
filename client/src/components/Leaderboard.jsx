@@ -67,6 +67,7 @@ export default function Leaderboard() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [currentWeek, setCurrentWeek] = useState(null);
   const [season, setSeason] = useState(null);
+  const [totalPot, setTotalPot] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [togglingPaid, setTogglingPaid] = useState(null);
@@ -82,6 +83,7 @@ export default function Leaderboard() {
         setLeaderboard(data.leaderboard || []);
         setCurrentWeek(data.currentWeek);
         setSeason(data.season);
+        setTotalPot(data.totalPot);
       } catch (err) {
         setError('Failed to load standings');
       } finally {
@@ -279,7 +281,14 @@ export default function Leaderboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-white">Still Alive</h2>
-        <span className="text-sm text-gray-500">Week {currentWeek} · {season}</span>
+        <div className="text-right">
+          <span className="text-sm text-gray-500">Week {currentWeek} · {season}</span>
+          {totalPot != null && (
+            <div className="text-sm font-semibold text-green-400">
+              ${totalPot.toLocaleString()} total pot
+            </div>
+          )}
+        </div>
       </div>
 
       {activePlayers.length === 0 && eliminatedPlayers.length === 0 && (
