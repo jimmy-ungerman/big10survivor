@@ -4,7 +4,7 @@
   "schedule": ["before 9am"],
   "packageRules": [
     {
-      "matchUpdateTypes": ["minor", "patch", "major"],
+      "matchUpdateTypes": ["minor", "patch"],
       "groupName": "all non-major deps",
       "automerge": false
     }
