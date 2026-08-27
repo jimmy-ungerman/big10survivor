@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { query } from '../db/index.js';
 import { normalizeBigTenName, BIG_TEN_TEAMS } from '../services/espn.js';
+import { ENTRY_FEE } from '../config.js';
 
 const router = Router();
 
@@ -91,7 +92,7 @@ router.get('/', requireAuth, (req, res) => {
     return {
       id: user.id,
       username: user.username,
-      fullName: user.full_name,
+      fullName: req.user.isAdmin ? user.full_name : undefined,
       isAdmin: user.is_admin === 1,
       isEliminated: user.is_eliminated === 1,
       eliminatedWeek: user.eliminated_week,
@@ -114,7 +115,9 @@ router.get('/', requireAuth, (req, res) => {
     return b.weeksSurvived - a.weeksSurvived;
   });
 
-  res.json({ leaderboard, currentWeek, season: currentSeason });
+  const totalPot = users.length * ENTRY_FEE;
+
+  res.json({ leaderboard, currentWeek, season: currentSeason, totalPot, entryFee: ENTRY_FEE });
 });
 
 export default router;
