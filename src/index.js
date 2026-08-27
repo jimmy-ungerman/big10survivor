@@ -36,21 +36,26 @@ app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/split', splitRouter);
 
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, timestamp: new Date().toISOString() });
+});
+
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
   const distPath = join(__dirname, '..', 'dist');
   if (existsSync(distPath)) {
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    // Express 5 requires a named wildcard (path-to-regexp v8) - bare '*' throws at registration.
+    app.get('/*splat', (req, res) => {
+      // Don't let unmatched /api/* requests fall through to the SPA shell.
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'Not found' });
+      }
       res.sendFile(join(distPath, 'index.html'));
     });
   }
 }
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ ok: true, timestamp: new Date().toISOString() });
-});
 
 // Initialize DB and start server
 initDb();
