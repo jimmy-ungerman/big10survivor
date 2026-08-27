@@ -58,7 +58,7 @@ jobs:
           git log "${{ steps.latest-tag.outputs.tag }}..HEAD" --no-merges --format='%B%x00' > /tmp/unreleased-commits.txt
 
       - name: Compute and post release preview
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const latestTag = '${{ steps.latest-tag.outputs.tag }}';
