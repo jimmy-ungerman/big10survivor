@@ -3,6 +3,13 @@ name: Release
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'client/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Dockerfile'
 
 env:
   REGISTRY: ghcr.io
