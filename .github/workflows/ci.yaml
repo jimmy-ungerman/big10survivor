@@ -52,10 +52,11 @@ jobs:
       # since semantic-release itself walks everything since the last tag —
       # not just this PR's commits. `HEAD` here is the PR's merge-ref checkout
       # (base + PR head merged), so this covers both.
-      - name: Collect unreleased commit messages
+      - name: Collect unreleased commit messages and changed files
         id: unreleased
         run: |
           git log "${{ steps.latest-tag.outputs.tag }}..HEAD" --no-merges --format='%B%x00' > /tmp/unreleased-commits.txt
+          git diff --name-only "${{ steps.latest-tag.outputs.tag }}..HEAD" > /tmp/changed-files.txt
 
       - name: Compute and post release preview
         uses: actions/github-script@v9
@@ -66,24 +67,35 @@ jobs:
             const fs = require('fs');
             const raw = fs.readFileSync('/tmp/unreleased-commits.txt', 'utf8');
             const messages = raw.split('\0').map(s => s.trim()).filter(Boolean);
+            const changedFiles = fs.readFileSync('/tmp/changed-files.txt', 'utf8').split('\n').map(s => s.trim()).filter(Boolean);
+
+            // Mirrors the `paths` filter on release.yaml's push trigger - if nothing
+            // here changed, the Release workflow won't even run, no matter what the
+            // commit messages say.
+            const releasePaths = [/^src\//, /^client\//, /^shared\//, /^package\.json$/, /^package-lock\.json$/, /^Dockerfile$/];
+            const touchesReleasePath = changedFiles.some(f => releasePaths.some(re => re.test(f)));
 
             let bump = null;
-            for (const msg of messages) {
-              if (/BREAKING CHANGE/.test(msg) || /^[a-z]+(\(.+\))?!:/.test(msg)) {
-                bump = 'major';
-                break;
+            if (touchesReleasePath) {
+              for (const msg of messages) {
+                if (/BREAKING CHANGE/.test(msg) || /^[a-z]+(\(.+\))?!:/.test(msg)) {
+                  bump = 'major';
+                  break;
+                }
+                if (/^feat(\(.+\))?:/.test(msg) && bump !== 'major') bump = 'minor';
+                if (/^(fix|perf|revert)(\(.+\))?:/.test(msg) && !bump) bump = 'patch';
+                // Mirrors the releaseRule in .releaserc.json: chore(deps) -> patch
+                if (/^chore\(deps\):/.test(msg) && !bump) bump = 'patch';
               }
-              if (/^feat(\(.+\))?:/.test(msg) && bump !== 'major') bump = 'minor';
-              if (/^(fix|perf|revert)(\(.+\))?:/.test(msg) && !bump) bump = 'patch';
-              // Mirrors the releaseRule in .releaserc.json: chore(deps) -> patch
-              if (/^chore\(deps\):/.test(msg) && !bump) bump = 'patch';
             }
 
             const marker = '<!-- semantic-release-preview -->';
             let body;
 
             if (!bump) {
-              body = `${marker}\n📦 No new release will be created (no releasable commits).`;
+              body = touchesReleasePath
+                ? `${marker}\n📦 No new release will be created (no releasable commits).`
+                : `${marker}\n📦 No new release will be created (no changes to release-relevant paths).`;
             } else {
               const [major, minor, patch] = latestTag.replace('v', '').split('.').map(Number);
               const next = bump === 'major' ? `${major + 1}.0.0`
