@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { query } from '../db/index.js';
 import { normalizeBigTenName, BIG_TEN_TEAMS } from '../services/espn.js';
+import { currentSeason as getSeason, getCurrentWeek } from '../services/schedule.js';
 import { ENTRY_FEE } from '../config.js';
 
 const router = Router();
@@ -14,12 +15,9 @@ router.get('/', requireAuth, (req, res) => {
     'SELECT id, username, full_name, is_admin, is_eliminated, eliminated_week, is_paid, created_at FROM users ORDER BY created_at ASC'
   );
 
-  // Get current week/season
-  const { rows: latestGame } = query(
-    'SELECT week_number, season FROM games ORDER BY season DESC, week_number DESC LIMIT 1'
-  );
-  const currentWeek = latestGame[0]?.week_number || 1;
-  const currentSeason = latestGame[0]?.season || new Date().getFullYear();
+  // Current week/season — derived from the DB (see services/schedule.js)
+  const currentSeason = getSeason();
+  const currentWeek = getCurrentWeek(currentSeason);
 
   const leaderboard = users.map(user => {
     // Get all picks for this season

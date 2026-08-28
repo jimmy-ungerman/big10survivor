@@ -1,130 +1,107 @@
 import { Router } from 'express';
 import { query } from '../db/index.js';
-import { getCurrentWeekGames, getFullSchedule, isBigTenTeam, normalizeBigTenName } from '../services/espn.js';
+import { isBigTenTeam, normalizeBigTenName } from '../services/espn.js';
+import { currentSeason, seasonIsSeeded, seedSchedule, getCurrentWeek } from '../services/schedule.js';
 
 const router = Router();
 
-// Cache to avoid hammering ESPN
-let gamesCache = null;
-let cacheTime = null;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// The daily seeder (services/schedule.js) normally keeps every week populated.
+// These are the request-path fallbacks: a cold start before the cron's first run,
+// or a future week ESPN hadn't fully scheduled at the last seed. Throttled so a
+// genuinely empty ESPN response can't trigger a refetch storm.
+let lastOnDemandSeed = 0;
+const ON_DEMAND_SEED_THROTTLE = 10 * 60 * 1000; // 10 minutes
 
-let scheduleCache = null;
-let scheduleCacheTime = null;
-const SCHEDULE_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+async function maybeSeed(season, force) {
+  if (!force && Date.now() - lastOnDemandSeed < ON_DEMAND_SEED_THROTTLE) return;
+  lastOnDemandSeed = Date.now();
+  await seedSchedule(season);
+}
 
+function enrichGame(g) {
+  return {
+    ...g,
+    home_is_big_ten: isBigTenTeam(g.home_team),
+    away_is_big_ten: isBigTenTeam(g.away_team),
+    home_big_ten_name: normalizeBigTenName(g.home_team),
+    away_big_ten_name: normalizeBigTenName(g.away_team),
+  };
+}
+
+function weekGames(week, season) {
+  return query(
+    'SELECT * FROM games WHERE week_number = $1 AND season = $2 ORDER BY commence_time ASC',
+    [week, season]
+  ).rows;
+}
+
+// Current week's games — served straight from the DB, no ESPN call in the request path.
 router.get('/', async (req, res) => {
   try {
-    // Try to return from DB first for current week
-    const now = Date.now();
-    if (gamesCache && cacheTime && (now - cacheTime) < CACHE_TTL) {
-      return res.json(gamesCache);
+    const season = currentSeason();
+    if (!seasonIsSeeded(season)) await maybeSeed(season, true);
+
+    let week = getCurrentWeek(season);
+    let games = weekGames(week, season);
+
+    // A future week ESPN hadn't scheduled yet at the last seed — try once more.
+    if (games.length === 0) {
+      await maybeSeed(season, false);
+      week = getCurrentWeek(season);
+      games = weekGames(week, season);
     }
 
-    // Fetch current week from ESPN
-    const { season, week, events } = await getCurrentWeekGames();
-
-    // Upsert games into DB
-    for (const event of events) {
-      const { rows: existing } = query(
-        'SELECT id FROM games WHERE espn_id = $1',
-        [event.espnId]
-      );
-
-      if (existing.length > 0) {
-        query(
-          `UPDATE games SET
-            home_team = $1, away_team = $2,
-            home_abbr = $3, away_abbr = $4,
-            status = $5, home_score = $6, away_score = $7,
-            updated_at = CURRENT_TIMESTAMP
-           WHERE espn_id = $8`,
-          [
-            event.homeTeam, event.awayTeam,
-            event.homeAbbr, event.awayAbbr,
-            event.status, event.homeScore, event.awayScore,
-            event.espnId
-          ]
-        );
-        // Backfill AP rank if we now have one but didn't before (e.g. a team
-        // was unranked when first seeded but the poll has since updated)
-        if (event.homeRank || event.awayRank) {
-          query(
-            `UPDATE games SET home_rank = $1, away_rank = $2
-             WHERE espn_id = $3 AND home_rank IS NULL AND away_rank IS NULL`,
-            [event.homeRank, event.awayRank, event.espnId]
-          );
-        }
-      } else {
-        query(
-          `INSERT INTO games
-            (espn_id, home_team, away_team, home_abbr, away_abbr, week_number, season, commence_time, status, home_score, away_score, home_rank, away_rank)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-          [
-            event.espnId, event.homeTeam, event.awayTeam,
-            event.homeAbbr, event.awayAbbr,
-            week, season, event.commenceTime,
-            event.status, event.homeScore, event.awayScore,
-            event.homeRank, event.awayRank,
-          ]
-        );
-      }
-    }
-
-    // Return from DB
-    const { rows: games } = query(
-      'SELECT * FROM games WHERE week_number = $1 AND season = $2 ORDER BY commence_time ASC',
-      [week, season]
-    );
-
-    const enrichedGames = games.map(g => ({
-      ...g,
-      home_is_big_ten: isBigTenTeam(g.home_team),
-      away_is_big_ten: isBigTenTeam(g.away_team),
-      home_big_ten_name: normalizeBigTenName(g.home_team),
-      away_big_ten_name: normalizeBigTenName(g.away_team),
-    }));
-
-    const response = { games: enrichedGames, week, season };
-    gamesCache = response;
-    cacheTime = now;
-
-    res.json(response);
+    res.json({ games: games.map(enrichGame), week, season });
   } catch (err) {
     console.error('Games route error:', err);
     res.status(500).json({ error: 'Failed to fetch games' });
   }
 });
 
-// Full season schedule for planning sheet
+// Full season schedule for the planning sheet — also straight from the DB.
 router.get('/schedule', async (req, res) => {
   try {
-    const now = Date.now();
-    if (scheduleCache && scheduleCacheTime && (now - scheduleCacheTime) < SCHEDULE_CACHE_TTL) {
-      return res.json(scheduleCache);
+    const season = currentSeason();
+    if (!seasonIsSeeded(season)) await maybeSeed(season, true);
+
+    const { rows: games } = query(
+      'SELECT * FROM games WHERE season = $1 ORDER BY week_number ASC, commence_time ASC',
+      [season]
+    );
+
+    const schedule = {};
+    for (const g of games) {
+      (schedule[g.week_number] ||= []).push({
+        espnId: g.espn_id,
+        homeTeam: g.home_team,
+        awayTeam: g.away_team,
+        homeAbbr: g.home_abbr,
+        awayAbbr: g.away_abbr,
+        homeRank: g.home_rank,
+        awayRank: g.away_rank,
+        commenceTime: g.commence_time,
+        status: g.status,
+        homeScore: g.home_score,
+        awayScore: g.away_score,
+      });
     }
 
-    const year = new Date().getFullYear();
-    const { season, schedule } = await getFullSchedule(year);
-
-    const response = { season, schedule };
-    scheduleCache = response;
-    scheduleCacheTime = now;
-
-    res.json(response);
+    res.json({ season, schedule });
   } catch (err) {
     console.error('Schedule route error:', err);
     res.status(500).json({ error: 'Failed to fetch schedule' });
   }
 });
 
-// Admin route to force refresh
+// Force a re-seed from ESPN (refreshes rankings, kickoff times, scores).
 router.post('/refresh', async (req, res) => {
-  gamesCache = null;
-  cacheTime = null;
-  scheduleCache = null;
-  scheduleCacheTime = null;
-  res.json({ ok: true });
+  try {
+    const count = await seedSchedule(currentSeason());
+    res.json({ ok: true, upserted: count });
+  } catch (err) {
+    console.error('Schedule refresh error:', err);
+    res.status(500).json({ error: 'Failed to refresh schedule' });
+  }
 });
 
 export default router;

@@ -14,6 +14,7 @@ import leaderboardRouter from './routes/leaderboard.js';
 import adminRouter from './routes/admin.js';
 import splitRouter from './routes/split.js';
 import { startScoreUpdater } from './jobs/scoreUpdater.js';
+import { startScheduleSeeder } from './services/schedule.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3002;
@@ -59,6 +60,7 @@ if (process.env.NODE_ENV === 'production') {
 
 // Initialize DB and start server
 initDb();
+startScheduleSeeder();
 startScoreUpdater();
 
 app.listen(PORT, () => {
