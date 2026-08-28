@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS games (
   status TEXT DEFAULT 'scheduled',
   home_score INTEGER,
   away_score INTEGER,
+  home_rank INTEGER,
+  away_rank INTEGER,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

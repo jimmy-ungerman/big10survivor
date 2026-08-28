@@ -14,6 +14,14 @@ function parseStatus(espnStatus) {
   return 'scheduled';
 }
 
+// ESPN's curatedRank tracks the AP Poll all season (confirmed against psuParlay's
+// verification: it doesn't switch to CFP committee rankings once those start in
+// November). 99 is the "unranked" sentinel.
+function parseRank(competitor) {
+  const rank = competitor?.curatedRank?.current;
+  return rank && rank !== 99 ? rank : null;
+}
+
 function parseEvents(events) {
   const results = [];
   for (const event of events) {
@@ -35,6 +43,8 @@ function parseEvents(events) {
       awayTeam: away.team.displayName || away.team.name,
       homeAbbr: home.team.abbreviation,
       awayAbbr: away.team.abbreviation,
+      homeRank: parseRank(home),
+      awayRank: parseRank(away),
       commenceTime: event.date,
       status,
       homeScore,

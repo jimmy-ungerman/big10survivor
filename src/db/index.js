@@ -36,6 +36,8 @@ export function initDb() {
   // Migrations for columns added after initial release
   try { db.exec('ALTER TABLE users ADD COLUMN is_paid INTEGER DEFAULT 0'); } catch {}
   try { db.exec('ALTER TABLE users ADD COLUMN full_name TEXT'); } catch {}
+  try { db.exec('ALTER TABLE games ADD COLUMN home_rank INTEGER'); } catch {}
+  try { db.exec('ALTER TABLE games ADD COLUMN away_rank INTEGER'); } catch {}
   try {
     db.exec(`CREATE TABLE IF NOT EXISTS split_votes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
