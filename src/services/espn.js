@@ -64,63 +64,8 @@ async function fetchWeek(year, week) {
   }
 }
 
-export async function getCurrentWeekGames() {
-  const now = new Date();
-  const year = now.getFullYear();
-
-  let bestWeek = 1;
-  let bestScore = -Infinity;
-
-  for (let week = 1; week <= 15; week++) {
-    const events = await fetchWeek(year, week);
-    if (!events.length) continue;
-
-    let score = 0;
-    for (const event of events) {
-      const eventDate = new Date(event.date);
-      const diffMs = eventDate - now;
-      const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-      const status = parseStatus(event.status);
-      if (status === 'in_progress') {
-        score += 1000; // Heavily prefer weeks with live games
-      } else if (status === 'scheduled') {
-        // Games in the future within 7 days are ideal
-        if (diffDays >= 0 && diffDays <= 7) {
-          score += 100;
-        } else if (diffDays > 7) {
-          score += 10; // Future but farther out
-        }
-      }
-      // Complete games score 0 — we don't want past weeks
-    }
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestWeek = week;
-    }
-
-    // If we found a week with live games, stop searching
-    if (score >= 1000) break;
-  }
-
-  const events = await fetchWeek(year, bestWeek);
-  const parsed = parseEvents(events);
-
-  // Filter to only games involving at least one Big Ten team
-  const bigTenGames = parsed.filter(
-    g => isBigTenTeam(g.homeTeam) || isBigTenTeam(g.awayTeam)
-  );
-
-  return {
-    season: year,
-    week: bestWeek,
-    events: bigTenGames,
-  };
-}
-
-export async function getFullSchedule(year) {
-  const weekPromises = Array.from({ length: 13 }, (_, i) => fetchWeek(year, i + 1));
+export async function getFullSchedule(year, maxWeek = 13) {
+  const weekPromises = Array.from({ length: maxWeek }, (_, i) => fetchWeek(year, i + 1));
   const allWeeks = await Promise.all(weekPromises);
 
   const schedule = {};

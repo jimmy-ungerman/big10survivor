@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { query } from '../db/index.js';
 import { isBigTenTeam, normalizeBigTenName, BIG_TEN_TEAMS } from '../services/espn.js';
+import { currentSeason, getCurrentWeek } from '../services/schedule.js';
 
 const router = Router();
 
@@ -12,15 +13,13 @@ router.get('/', requireAuth, (req, res) => {
   let { week, season } = req.query;
 
   if (!week || !season) {
-    // Get the most recent week from games table
-    const { rows: latest } = query(
-      'SELECT week_number, season FROM games ORDER BY season DESC, week_number DESC LIMIT 1'
-    );
-    if (latest.length === 0) {
+    // Default to the active week, derived from the DB (see services/schedule.js).
+    season = currentSeason();
+    const { rows: any } = query('SELECT 1 FROM games WHERE season = $1 LIMIT 1', [season]);
+    if (any.length === 0) {
       return res.json({ picks: [], week: null, season: null });
     }
-    week = latest[0].week_number;
-    season = latest[0].season;
+    week = getCurrentWeek(season);
   }
 
   const { rows: picks } = query(
