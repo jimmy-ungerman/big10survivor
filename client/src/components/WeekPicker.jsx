@@ -17,12 +17,15 @@ function getStatusLabel(status) {
   return null;
 }
 
-function TeamButton({ teamSide, teamName, teamAbbr, isBigTen, isUsed, isSelected, isGameLocked, isGameComplete, isDoubleCapped, onSelect, pickedSide }) {
+function TeamButton({ teamSide, teamName, teamAbbr, teamRank, isBigTen, isUsed, isSelected, isGameLocked, isGameComplete, isDoubleCapped, onSelect, pickedSide }) {
   if (!isBigTen) {
     return (
       <div className="flex-1 px-3 py-4 text-center">
         <div className="text-xs text-gray-600 uppercase font-medium mb-1">{teamAbbr}</div>
-        <div className="text-sm text-gray-500 font-medium">{teamName}</div>
+        <div className="text-sm text-gray-500 font-medium">
+          {teamRank && <span className="text-gray-600 font-semibold">#{teamRank} </span>}
+          {teamName}
+        </div>
         <div className="text-xs text-gray-600 mt-1">Non-Big Ten</div>
       </div>
     );
@@ -47,7 +50,10 @@ function TeamButton({ teamSide, teamName, teamAbbr, isBigTen, isUsed, isSelected
       className={buttonClass}
     >
       <div className="text-xs text-gray-400 uppercase font-medium mb-1">{teamAbbr}</div>
-      <div className="text-sm font-semibold">{teamName}</div>
+      <div className="text-sm font-semibold">
+        {teamRank && <span className="text-gray-500">#{teamRank} </span>}
+        {teamName}
+      </div>
       {isUsed && !isPickedByMe && (
         <div className="text-xs text-amber-500/80 mt-1">Already used</div>
       )}
@@ -402,6 +408,7 @@ export default function WeekPicker() {
                   teamSide="away"
                   teamName={game.away_big_ten_name || game.away_team}
                   teamAbbr={game.away_abbr}
+                  teamRank={game.away_rank}
                   isBigTen={game.away_is_big_ten}
                   isUsed={awayUsed}
                   isSelected={myPick?.picked_team === 'away'}
@@ -420,6 +427,7 @@ export default function WeekPicker() {
                   teamSide="home"
                   teamName={game.home_big_ten_name || game.home_team}
                   teamAbbr={game.home_abbr}
+                  teamRank={game.home_rank}
                   isBigTen={game.home_is_big_ten}
                   isUsed={homeUsed}
                   isSelected={myPick?.picked_team === 'home'}
