@@ -24,6 +24,7 @@ export const api = {
   login: (username, password) => request('POST', '/auth/login', { username, password }),
   logout: () => request('POST', '/auth/logout'),
   register: (username, password, fullName) => request('POST', '/auth/register', { username, password, fullName }),
+  registrationStatus: () => request('GET', '/auth/registration-status'),
   getGames: () => request('GET', '/games'),
   getPicks: (week, season) => {
     const qs = week && season ? `?week=${week}&season=${season}` : '';

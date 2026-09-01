@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { query } from '../db/index.js';
+import { REGISTRATION_CLOSES_AT, registrationClosed } from '../config.js';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
@@ -13,7 +14,15 @@ const COOKIE_OPTS = {
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
+router.get('/registration-status', (req, res) => {
+  res.json({ open: !registrationClosed(), closesAt: REGISTRATION_CLOSES_AT.toISOString() });
+});
+
 router.post('/register', async (req, res) => {
+  if (registrationClosed()) {
+    return res.status(403).json({ error: 'Registration is closed — sign-ups have been locked for the season' });
+  }
+
   const { username, password, fullName } = req.body;
 
   if (!username || !password || !fullName) {
