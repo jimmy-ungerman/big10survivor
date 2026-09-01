@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../App.jsx';
+import { api } from '../api/index.js';
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -10,6 +11,13 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [regOpen, setRegOpen] = useState(null); // null = still checking
+
+  useEffect(() => {
+    api.registrationStatus()
+      .then(data => setRegOpen(data.open))
+      .catch(() => setRegOpen(true)); // fail open; server still enforces the cutoff
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,11 +37,37 @@ export default function RegisterPage() {
     try {
       await register(username, password, fullName);
     } catch (err) {
+      if (err.status === 403) setRegOpen(false);
       setError(err.message || 'Registration failed');
     } finally {
       setLoading(false);
     }
   };
+
+  if (regOpen === false) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-white mb-2">Big Ten Survivor</h1>
+            <p className="text-gray-400">Sign-ups are closed</p>
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center">
+            <p className="text-gray-300">
+              Registration for this season has been locked. No new accounts can be created.
+            </p>
+            <div className="mt-6 text-sm text-gray-400">
+              Already have an account?{' '}
+              <Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium">
+                Sign in
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
