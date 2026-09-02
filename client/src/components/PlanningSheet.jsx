@@ -311,7 +311,10 @@ export default function PlanningSheet() {
                     // Available to plan
                     const teamAlreadySpoken = actuallyUsedTeams.has(team) || plannedTeams.has(team);
                     const weekFull = totalWeekPicks >= 2;
-                    const canPlan = !teamAlreadySpoken && !weekFull;
+                    // Adding a pick here would turn this into a 2-team week — but only
+                    // 5 of those are allowed for the season.
+                    const doubleWeekCapReached = totalWeekPicks === 1 && doublePickWeeksUsed >= 5;
+                    const canPlan = !teamAlreadySpoken && !weekFull && !doubleWeekCapReached;
 
                     return (
                       <td
