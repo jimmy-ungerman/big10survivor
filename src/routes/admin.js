@@ -52,6 +52,30 @@ router.post('/users', requireAdmin, async (req, res) => {
   });
 });
 
+// Reset a user's password (the "forgot password" flow — no email). Admin hands
+// the user the temp password out-of-band; they're forced to change it on next login.
+router.post('/users/:id/reset-password', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { tempPassword } = req.body;
+
+  if (!tempPassword || tempPassword.length < 4) {
+    return res.status(400).json({ error: 'Temporary password must be at least 4 characters' });
+  }
+
+  const { rows } = query('SELECT id, username FROM users WHERE id = $1', [id]);
+  if (rows.length === 0) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const passwordHash = await bcrypt.hash(tempPassword, 10);
+  query(
+    'UPDATE users SET password_hash = $1, must_change_password = 1 WHERE id = $2',
+    [passwordHash, id]
+  );
+
+  res.json({ ok: true, id: Number(id), username: rows[0].username, mustChangePassword: true });
+});
+
 router.patch('/users/:id/paid', requireAdmin, (req, res) => {
   const { id } = req.params;
   const { paid } = req.body;

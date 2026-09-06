@@ -18,6 +18,10 @@ export default function AdminPanel() {
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState(null); // { username, tempPassword }
 
+  const [confirmReset, setConfirmReset] = useState(null); // player id awaiting confirm
+  const [resetting, setResetting] = useState(null); // player id in flight
+  const [resetResult, setResetResult] = useState(null); // { id, username, tempPassword }
+
   const refresh = () =>
     api.getLeaderboard()
       .then(data => setPlayers(data.leaderboard || []))
@@ -41,6 +45,26 @@ export default function AdminPanel() {
       setError(err.message || 'Failed to create player');
     }
     setCreating(false);
+  };
+
+  const resetPassword = async (player) => {
+    if (confirmReset !== player.id) {
+      setConfirmReset(player.id);
+      return;
+    }
+    setConfirmReset(null);
+    setError('');
+    setResetResult(null);
+    setResetting(player.id);
+    try {
+      const tempPassword = generateTempPassword();
+      await api.resetUserPassword(player.id, tempPassword);
+      setResetResult({ id: player.id, username: player.username, tempPassword });
+      await refresh();
+    } catch (err) {
+      setError(err.message || `Failed to reset ${player.username}'s password`);
+    }
+    setResetting(null);
   };
 
   const setPaid = async (player, paid) => {
@@ -181,11 +205,13 @@ export default function AdminPanel() {
               <th className="text-left px-4 py-3 font-medium">Player</th>
               <th className="text-center px-4 py-3 font-medium">Status</th>
               <th className="text-center px-4 py-3 font-medium">Paid</th>
+              <th className="text-right px-4 py-3 font-medium">Password</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
             {players.map(player => (
-              <tr key={player.id} className="hover:bg-gray-800/30 transition-colors">
+              <React.Fragment key={player.id}>
+              <tr className="hover:bg-gray-800/30 transition-colors">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <span className={`font-medium ${player.isEliminated ? 'text-gray-500 line-through' : 'text-white'}`}>
@@ -223,7 +249,41 @@ export default function AdminPanel() {
                     </span>
                   </div>
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    onClick={() => resetPassword(player)}
+                    disabled={resetting === player.id}
+                    className={`text-xs px-3 py-1.5 rounded border transition-colors disabled:opacity-40 ${
+                      confirmReset === player.id
+                        ? 'border-amber-700 text-amber-300 bg-amber-950/40'
+                        : 'border-gray-700 text-gray-400 hover:bg-gray-800'
+                    }`}
+                  >
+                    {resetting === player.id
+                      ? 'Resetting...'
+                      : confirmReset === player.id
+                        ? 'Confirm reset?'
+                        : 'Reset password'}
+                  </button>
+                </td>
               </tr>
+              {resetResult?.id === player.id && (
+                <tr>
+                  <td colSpan={4} className="px-4 pb-3">
+                    <div className="bg-green-950/40 border border-green-800 rounded-lg p-3 text-sm text-green-300 flex items-start justify-between gap-3">
+                      <div>
+                        Reset <span className="font-semibold">{resetResult.username}</span>. Send them this
+                        temp password — they'll set their own on next login:
+                        <div className="mt-1.5 font-mono text-base text-white bg-gray-800 rounded px-3 py-1.5 inline-block select-all">
+                          {resetResult.tempPassword}
+                        </div>
+                      </div>
+                      <button onClick={() => setResetResult(null)} className="text-green-300 hover:text-white">✕</button>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>

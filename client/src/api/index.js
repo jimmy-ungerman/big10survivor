@@ -39,6 +39,8 @@ export const api = {
   getMySeasonPicks: (season) => request('GET', `/picks/my-season?season=${season}`),
   createUser: ({ username, fullName, tempPassword, isPaid }) =>
     request('POST', '/admin/users', { username, fullName, tempPassword, isPaid }),
+  resetUserPassword: (userId, tempPassword) =>
+    request('POST', `/admin/users/${userId}/reset-password`, { tempPassword }),
   setUserPaid: (userId, paid) => request('PATCH', `/admin/users/${userId}/paid`, { paid }),
   setUserFullName: (userId, fullName) => request('PATCH', `/admin/users/${userId}/full-name`, { fullName }),
   getSplit: () => request('GET', '/split'),
