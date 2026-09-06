@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   is_eliminated INTEGER DEFAULT 0,
   eliminated_week INTEGER,
   is_paid INTEGER DEFAULT 0,
+  must_change_password INTEGER DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

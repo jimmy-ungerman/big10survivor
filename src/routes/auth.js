@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { query } from '../db/index.js';
+import { requireAuth } from '../middleware/auth.js';
 import { REGISTRATION_CLOSES_AT, registrationClosed } from '../config.js';
 
 const router = Router();
@@ -105,8 +106,40 @@ router.post('/login', async (req, res) => {
       isAdmin: user.is_admin === 1,
       isEliminated: user.is_eliminated === 1,
       eliminatedWeek: user.eliminated_week,
+      mustChangePassword: user.must_change_password === 1,
     }
   });
+});
+
+// Set a new password. Only usable while the account is flagged must_change_password
+// (manually-created accounts logging in with their temp password for the first time).
+router.post('/change-password', requireAuth, async (req, res) => {
+  const { newPassword } = req.body;
+
+  if (!newPassword || newPassword.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  }
+
+  const { rows } = query('SELECT * FROM users WHERE id = $1', [req.user.userId]);
+  const user = rows[0];
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  if (user.must_change_password !== 1) {
+    return res.status(403).json({ error: 'Password change is not required for this account' });
+  }
+
+  const sameAsOld = await bcrypt.compare(newPassword, user.password_hash);
+  if (sameAsOld) {
+    return res.status(400).json({ error: 'Pick a password different from the temporary one' });
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  query(
+    'UPDATE users SET password_hash = $1, must_change_password = 0 WHERE id = $2',
+    [passwordHash, user.id]
+  );
+
+  res.json({ ok: true });
 });
 
 router.post('/logout', (req, res) => {
@@ -132,6 +165,7 @@ router.get('/me', (req, res) => {
         isAdmin: user.is_admin === 1,
         isEliminated: user.is_eliminated === 1,
         eliminatedWeek: user.eliminated_week,
+        mustChangePassword: user.must_change_password === 1,
       }
     });
   } catch {

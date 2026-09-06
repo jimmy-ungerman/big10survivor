@@ -4,6 +4,7 @@ import { api } from './api/index.js';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import HomePage from './pages/HomePage.jsx';
+import ChangePasswordPage from './pages/ChangePasswordPage.jsx';
 
 export const AuthContext = createContext(null);
 
@@ -54,15 +55,19 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={{ user, setUser, loading, login, register, logout }}>
-      <Routes>
-        <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
-        <Route path="/register" element={user ? <Navigate to="/" /> : <RegisterPage />} />
-        <Route path="/*" element={
-          <ProtectedRoute>
-            <HomePage />
-          </ProtectedRoute>
-        } />
-      </Routes>
+      {user?.mustChangePassword ? (
+        <ChangePasswordPage />
+      ) : (
+        <Routes>
+          <Route path="/login" element={user ? <Navigate to="/" /> : <LoginPage />} />
+          <Route path="/register" element={user ? <Navigate to="/" /> : <RegisterPage />} />
+          <Route path="/*" element={
+            <ProtectedRoute>
+              <HomePage />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      )}
     </AuthContext.Provider>
   );
 }
