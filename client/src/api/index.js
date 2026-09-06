@@ -24,6 +24,7 @@ export const api = {
   login: (username, password) => request('POST', '/auth/login', { username, password }),
   logout: () => request('POST', '/auth/logout'),
   register: (username, password, fullName) => request('POST', '/auth/register', { username, password, fullName }),
+  changePassword: (newPassword) => request('POST', '/auth/change-password', { newPassword }),
   registrationStatus: () => request('GET', '/auth/registration-status'),
   getGames: () => request('GET', '/games'),
   getPicks: (week, season) => {
@@ -36,6 +37,8 @@ export const api = {
   getMyTeams: (season) => request('GET', `/picks/my-teams?season=${season}`),
   getSchedule: () => request('GET', '/games/schedule'),
   getMySeasonPicks: (season) => request('GET', `/picks/my-season?season=${season}`),
+  createUser: ({ username, fullName, tempPassword, isPaid }) =>
+    request('POST', '/admin/users', { username, fullName, tempPassword, isPaid }),
   setUserPaid: (userId, paid) => request('PATCH', `/admin/users/${userId}/paid`, { paid }),
   setUserFullName: (userId, fullName) => request('PATCH', `/admin/users/${userId}/full-name`, { fullName }),
   getSplit: () => request('GET', '/split'),

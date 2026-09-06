@@ -1,18 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/index.js';
 
+function generateTempPassword() {
+  const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
+  let s = '';
+  for (let i = 0; i < 6; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return `b10-${s}`;
+}
+
 export default function AdminPanel() {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(new Set());
 
-  useEffect(() => {
+  const [form, setForm] = useState({ fullName: '', username: '', tempPassword: generateTempPassword(), isPaid: true });
+  const [creating, setCreating] = useState(false);
+  const [created, setCreated] = useState(null); // { username, tempPassword }
+
+  const refresh = () =>
     api.getLeaderboard()
       .then(data => setPlayers(data.leaderboard || []))
-      .catch(() => setError('Failed to load players'))
-      .finally(() => setLoading(false));
+      .catch(() => setError('Failed to load players'));
+
+  useEffect(() => {
+    refresh().finally(() => setLoading(false));
   }, []);
+
+  const createPlayer = async (e) => {
+    e.preventDefault();
+    setError('');
+    setCreated(null);
+    setCreating(true);
+    try {
+      const { user } = await api.createUser(form);
+      setCreated({ username: user.username, tempPassword: form.tempPassword });
+      setForm({ fullName: '', username: '', tempPassword: generateTempPassword(), isPaid: true });
+      await refresh();
+    } catch (err) {
+      setError(err.message || 'Failed to create player');
+    }
+    setCreating(false);
+  };
 
   const setPaid = async (player, paid) => {
     setSaving(prev => new Set(prev).add(player.id));
@@ -77,6 +106,74 @@ export default function AdminPanel() {
         </div>
       )}
 
+      {/* Add a player manually (for people who paid/picked after registration locked) */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+        <h3 className="text-sm font-semibold text-white mb-3">Add player</h3>
+        <form onSubmit={createPlayer} className="grid gap-3 sm:grid-cols-2">
+          <input
+            type="text"
+            value={form.fullName}
+            onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
+            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            placeholder="Full name"
+            required minLength={2} maxLength={60}
+          />
+          <input
+            type="text"
+            value={form.username}
+            onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            placeholder="Username"
+            required minLength={2} maxLength={30}
+          />
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={form.tempPassword}
+              onChange={e => setForm(f => ({ ...f, tempPassword: e.target.value }))}
+              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
+              placeholder="Temp password"
+              required minLength={4}
+            />
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, tempPassword: generateTempPassword() }))}
+              className="text-xs px-2 py-2 rounded border border-gray-700 text-gray-400 hover:bg-gray-800 transition-colors"
+            >
+              Generate
+            </button>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-400">
+            <input
+              type="checkbox"
+              checked={form.isPaid}
+              onChange={e => setForm(f => ({ ...f, isPaid: e.target.checked }))}
+              className="accent-green-600"
+            />
+            Mark as paid
+          </label>
+          <div className="sm:col-span-2">
+            <button
+              type="submit"
+              disabled={creating}
+              className="text-sm px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:text-blue-400 text-white font-semibold transition-colors"
+            >
+              {creating ? 'Adding...' : 'Add player'}
+            </button>
+          </div>
+        </form>
+
+        {created && (
+          <div className="mt-3 bg-green-950/40 border border-green-800 rounded-lg p-3 text-sm text-green-300">
+            Created <span className="font-semibold">{created.username}</span>. Send them this temp password —
+            they'll be forced to change it on first login:
+            <div className="mt-1.5 font-mono text-base text-white bg-gray-800 rounded px-3 py-1.5 inline-block select-all">
+              {created.tempPassword}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -96,6 +193,9 @@ export default function AdminPanel() {
                     </span>
                     {player.isAdmin && (
                       <span className="text-xs text-purple-400 bg-purple-950/40 border border-purple-800 px-1.5 py-0.5 rounded">admin</span>
+                    )}
+                    {player.mustChangePassword && (
+                      <span className="text-xs text-amber-400 bg-amber-950/40 border border-amber-800 px-1.5 py-0.5 rounded">temp pw</span>
                     )}
                   </div>
                 </td>
