@@ -102,6 +102,28 @@ export default function PlanningSheet() {
     return Object.keys(scheduleData.schedule).map(Number).sort((a, b) => a - b);
   }, [scheduleData]);
 
+  // Keep the stored plan honest as the season progresses: drop any planned pick
+  // whose game has locked, or whose team has since been used for real. Without
+  // this, a week you planned as a 2-team week and then actually picked keeps its
+  // stale planned entries, which throws off the teams-left and 2-team-week counts
+  // (a completed 2-team week stops being counted once cruft pushes it past 2).
+  useEffect(() => {
+    if (!scheduleData) return;
+    setPlanData(prev => {
+      let changed = false;
+      const next = {};
+      for (const [week, teams] of Object.entries(prev)) {
+        const kept = teams.filter(team => {
+          const game = scheduleMap[week]?.[team]?.game;
+          return game && game.status === 'scheduled' && !actuallyUsedTeams.has(team);
+        });
+        if (kept.length !== teams.length) changed = true;
+        if (kept.length) next[week] = kept;
+      }
+      return changed ? next : prev;
+    });
+  }, [scheduleData, scheduleMap, actuallyUsedTeams]);
+
   function handleCellClick(week, team) {
     const weekKey = String(week);
     const weekPlan = planData[weekKey] || [];
