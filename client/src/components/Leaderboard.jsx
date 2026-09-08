@@ -239,18 +239,26 @@ export default function Leaderboard() {
               <div className="text-xs text-gray-600 mt-1">No picks yet this week</div>
             )}
 
-            {/* All 18 teams — green if used, dim if not */}
+            {/* All 18 teams — yellow this week, green for official wins, red for losses */}
             <div className="flex flex-wrap gap-1 mt-2">
               {BIG_TEN_TEAMS.map(team => {
-                const used = player.usedTeams.includes(team);
+                const history = (player.teamHistory || []).find(h => h.team === team);
+                let cls = 'text-gray-700 bg-gray-800/40 border-gray-800';
+                if (history) {
+                  if (history.result === 'loss') {
+                    cls = 'text-red-300 bg-red-950/40 border-red-800';
+                  } else if (history.isCurrentWeek) {
+                    cls = 'text-yellow-300 bg-yellow-950/40 border-yellow-800';
+                  } else if (history.result === 'win') {
+                    cls = 'text-green-300 bg-green-950/40 border-green-800';
+                  } else {
+                    cls = 'text-gray-400 bg-gray-800/40 border-gray-700';
+                  }
+                }
                 return (
                   <span
                     key={team}
-                    className={`text-xs px-1.5 py-0.5 rounded border font-medium ${
-                      used
-                        ? 'text-green-300 bg-green-950/40 border-green-800'
-                        : 'text-gray-700 bg-gray-800/40 border-gray-800'
-                    }`}
+                    className={`text-xs px-1.5 py-0.5 rounded border font-medium ${cls}`}
                   >
                     {team}
                   </span>
