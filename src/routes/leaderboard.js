@@ -37,6 +37,19 @@ router.get('/', requireAuth, (req, res) => {
       return normalizeBigTenName(rawName) || rawName;
     });
 
+    // Per-team pick history: team name -> { week, result, isCurrentWeek }
+    // Lets the standings grid colour each team by outcome (win / loss / this week).
+    const teamHistory = seasonPicks.map(p => {
+      const rawName = p.picked_team === 'home' ? p.home_team : p.away_team;
+      return {
+        team: normalizeBigTenName(rawName) || rawName,
+        week: p.week_number,
+        result: p.result,
+        gameStatus: p.game_status,
+        isCurrentWeek: p.week_number === currentWeek,
+      };
+    });
+
     // Get this week's picks
     const thisWeekPicks = seasonPicks
       .filter(p => p.week_number === currentWeek)
@@ -100,6 +113,7 @@ router.get('/', requireAuth, (req, res) => {
       weeksSurvived,
       currentWeekPicks: thisWeekPicks,
       usedTeams,
+      teamHistory,
       remainingTeams,
       teamsRemaining: remainingTeams.length,
       needsDoublePick,
