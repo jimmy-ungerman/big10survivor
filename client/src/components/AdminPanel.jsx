@@ -8,6 +8,84 @@ function generateTempPassword() {
   return `b10-${s}`;
 }
 
+function StatusBadge({ player }) {
+  return player.isEliminated
+    ? <span className="text-xs text-red-400 bg-red-950/40 border border-red-800 px-2 py-0.5 rounded">Out W{player.eliminatedWeek}</span>
+    : <span className="text-xs text-green-400 bg-green-950/40 border border-green-800 px-2 py-0.5 rounded">Alive</span>;
+}
+
+function PlayerName({ player }) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className={`font-medium ${player.isEliminated ? 'text-gray-500 line-through' : 'text-white'}`}>
+        {player.username}
+      </span>
+      {player.isAdmin && (
+        <span className="text-xs text-purple-400 bg-purple-950/40 border border-purple-800 px-1.5 py-0.5 rounded">admin</span>
+      )}
+      {player.mustChangePassword && (
+        <span className="text-xs text-amber-400 bg-amber-950/40 border border-amber-800 px-1.5 py-0.5 rounded">temp pw</span>
+      )}
+    </div>
+  );
+}
+
+function PaidToggle({ player, busy, onToggle }) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={onToggle}
+        disabled={busy}
+        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
+          player.isPaid ? 'bg-green-600' : 'bg-gray-700'
+        }`}
+      >
+        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+          player.isPaid ? 'translate-x-4' : 'translate-x-1'
+        }`} />
+      </button>
+      <span className={`text-xs w-12 ${player.isPaid ? 'text-green-400' : 'text-gray-500'}`}>
+        {busy ? '...' : player.isPaid ? 'Paid' : 'Unpaid'}
+      </span>
+    </div>
+  );
+}
+
+function ResetButton({ player, confirmReset, resetting, onReset }) {
+  return (
+    <button
+      onClick={onReset}
+      disabled={resetting === player.id}
+      className={`text-xs px-3 py-1.5 rounded border transition-colors disabled:opacity-40 whitespace-nowrap ${
+        confirmReset === player.id
+          ? 'border-amber-700 text-amber-300 bg-amber-950/40'
+          : 'border-gray-700 text-gray-400 hover:bg-gray-800'
+      }`}
+    >
+      {resetting === player.id
+        ? 'Resetting...'
+        : confirmReset === player.id
+          ? 'Confirm reset?'
+          : 'Reset password'}
+    </button>
+  );
+}
+
+function ResetResultBanner({ result, onDismiss }) {
+  return (
+    <div className="bg-green-950/40 border border-green-800 rounded-lg p-3 text-sm text-green-300 flex items-start justify-between gap-3">
+      <div>
+        Reset <span className="font-semibold">{result.username}</span>. Send them this
+        temp password — they'll set their own on next login:
+        <div className="mt-1.5 font-mono text-base text-white bg-gray-800 rounded px-3 py-1.5 inline-block select-all">
+          {result.tempPassword}
+        </div>
+      </div>
+      <button onClick={onDismiss} className="text-green-300 hover:text-white">✕</button>
+    </div>
+  );
+}
+
 export default function AdminPanel() {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -198,7 +276,36 @@ export default function AdminPanel() {
         )}
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      {/* Mobile: stacked cards */}
+      <div className="space-y-2 sm:hidden">
+        {players.map(player => (
+          <div key={player.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <PlayerName player={player} />
+              <StatusBadge player={player} />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <PaidToggle
+                player={player}
+                busy={saving.has(player.id)}
+                onToggle={() => setPaid(player, !player.isPaid)}
+              />
+              <ResetButton
+                player={player}
+                confirmReset={confirmReset}
+                resetting={resetting}
+                onReset={() => resetPassword(player)}
+              />
+            </div>
+            {resetResult?.id === player.id && (
+              <ResetResultBanner result={resetResult} onDismiss={() => setResetResult(null)} />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden sm:block bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wide">
@@ -213,73 +320,33 @@ export default function AdminPanel() {
               <React.Fragment key={player.id}>
               <tr className="hover:bg-gray-800/30 transition-colors">
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className={`font-medium ${player.isEliminated ? 'text-gray-500 line-through' : 'text-white'}`}>
-                      {player.username}
-                    </span>
-                    {player.isAdmin && (
-                      <span className="text-xs text-purple-400 bg-purple-950/40 border border-purple-800 px-1.5 py-0.5 rounded">admin</span>
-                    )}
-                    {player.mustChangePassword && (
-                      <span className="text-xs text-amber-400 bg-amber-950/40 border border-amber-800 px-1.5 py-0.5 rounded">temp pw</span>
-                    )}
-                  </div>
+                  <PlayerName player={player} />
                 </td>
                 <td className="px-4 py-3 text-center">
-                  {player.isEliminated
-                    ? <span className="text-xs text-red-400 bg-red-950/40 border border-red-800 px-2 py-0.5 rounded">Out W{player.eliminatedWeek}</span>
-                    : <span className="text-xs text-green-400 bg-green-950/40 border border-green-800 px-2 py-0.5 rounded">Alive</span>
-                  }
+                  <StatusBadge player={player} />
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center justify-center gap-2">
-                    <button
-                      onClick={() => setPaid(player, !player.isPaid)}
-                      disabled={saving.has(player.id)}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
-                        player.isPaid ? 'bg-green-600' : 'bg-gray-700'
-                      }`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                        player.isPaid ? 'translate-x-4' : 'translate-x-1'
-                      }`} />
-                    </button>
-                    <span className={`text-xs w-12 ${player.isPaid ? 'text-green-400' : 'text-gray-500'}`}>
-                      {saving.has(player.id) ? '...' : player.isPaid ? 'Paid' : 'Unpaid'}
-                    </span>
+                  <div className="flex justify-center">
+                    <PaidToggle
+                      player={player}
+                      busy={saving.has(player.id)}
+                      onToggle={() => setPaid(player, !player.isPaid)}
+                    />
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => resetPassword(player)}
-                    disabled={resetting === player.id}
-                    className={`text-xs px-3 py-1.5 rounded border transition-colors disabled:opacity-40 ${
-                      confirmReset === player.id
-                        ? 'border-amber-700 text-amber-300 bg-amber-950/40'
-                        : 'border-gray-700 text-gray-400 hover:bg-gray-800'
-                    }`}
-                  >
-                    {resetting === player.id
-                      ? 'Resetting...'
-                      : confirmReset === player.id
-                        ? 'Confirm reset?'
-                        : 'Reset password'}
-                  </button>
+                  <ResetButton
+                    player={player}
+                    confirmReset={confirmReset}
+                    resetting={resetting}
+                    onReset={() => resetPassword(player)}
+                  />
                 </td>
               </tr>
               {resetResult?.id === player.id && (
                 <tr>
                   <td colSpan={4} className="px-4 pb-3">
-                    <div className="bg-green-950/40 border border-green-800 rounded-lg p-3 text-sm text-green-300 flex items-start justify-between gap-3">
-                      <div>
-                        Reset <span className="font-semibold">{resetResult.username}</span>. Send them this
-                        temp password — they'll set their own on next login:
-                        <div className="mt-1.5 font-mono text-base text-white bg-gray-800 rounded px-3 py-1.5 inline-block select-all">
-                          {resetResult.tempPassword}
-                        </div>
-                      </div>
-                      <button onClick={() => setResetResult(null)} className="text-green-300 hover:text-white">✕</button>
-                    </div>
+                    <ResetResultBanner result={resetResult} onDismiss={() => setResetResult(null)} />
                   </td>
                 </tr>
               )}
