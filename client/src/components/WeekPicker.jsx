@@ -209,6 +209,19 @@ export default function WeekPicker() {
         </div>
       </div>
 
+      {/* Pick status banner — red until at least one pick is locked in for the week */}
+      {!user.isEliminated && (
+        myPicks.length > 0 ? (
+          <div className="bg-green-950/50 border border-green-700 rounded-xl p-4 text-green-400 text-sm text-center font-medium">
+            ✓ You've picked for Week {week}
+          </div>
+        ) : (
+          <div className="bg-red-950/50 border border-red-800 rounded-xl p-4 text-red-400 text-sm text-center font-medium">
+            ⚠ No pick made yet for Week {week}
+          </div>
+        )
+      )}
+
       {/* Split the pot — only shown once at least one player has been eliminated */}
       {splitData && splitData.aliveCount < splitData.totalPlayers && (
         <div className={`border rounded-xl overflow-hidden ${
