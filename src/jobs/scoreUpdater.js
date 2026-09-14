@@ -5,36 +5,35 @@ import { calculateResult } from '../services/results.js';
 
 async function updateScores() {
   try {
-    // Get all games that are not yet complete
+    // Get all games that are not yet complete, and poll ESPN for their
+    // live scores. This is best-effort: skipped entirely once every game
+    // in the DB is already complete (e.g. after the season ends, or a
+    // pick gets manually backfilled onto an old game with no other
+    // active games left) — but pending-pick resolution below must NOT
+    // be gated on this, or picks on already-complete games would never
+    // resolve in that situation.
     const { rows: activeGames } = query(
       `SELECT * FROM games WHERE status != 'complete'`
     );
 
-    if (activeGames.length === 0) return;
+    if (activeGames.length > 0) {
+      const espnIds = activeGames.map(g => g.espn_id);
+      const liveScores = await fetchLiveScores(espnIds);
 
-    const espnIds = activeGames.map(g => g.espn_id);
-    const liveScores = await fetchLiveScores(espnIds);
-
-    for (const scoreData of liveScores) {
-      query(
-        `UPDATE games SET
-          status = $1,
-          home_score = $2,
-          away_score = $3,
-          updated_at = CURRENT_TIMESTAMP
-         WHERE espn_id = $4`,
-        [scoreData.status, scoreData.homeScore, scoreData.awayScore, scoreData.espnId]
-      );
+      for (const scoreData of liveScores) {
+        query(
+          `UPDATE games SET
+            status = $1,
+            home_score = $2,
+            away_score = $3,
+            updated_at = CURRENT_TIMESTAMP
+           WHERE espn_id = $4`,
+          [scoreData.status, scoreData.homeScore, scoreData.awayScore, scoreData.espnId]
+        );
+      }
     }
 
     // Now resolve pending picks for completed games
-    const { rows: completedGames } = query(
-      `SELECT * FROM games WHERE status = 'complete'`
-    );
-
-    const completedIds = completedGames.map(g => g.id);
-    if (completedIds.length === 0) return;
-
     const { rows: pendingPicks } = query(
       `SELECT p.*, g.home_score, g.away_score, g.status as game_status
        FROM picks p
