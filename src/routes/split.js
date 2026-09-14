@@ -17,9 +17,12 @@ router.get('/', requireAuth, (req, res) => {
   }
   const season = latestGame[0].season;
 
-  // Total players and alive players
+  // Total players and alive players (admins are real paying/playing
+  // participants here — open registration just makes whoever signed up
+  // first the admin — so they must count toward the pot, the alive
+  // count, and voting eligibility, same as leaderboard.js's totalPot.)
   const { rows: allUsers } = query(
-    'SELECT id, is_eliminated FROM users WHERE is_admin = 0'
+    'SELECT id, is_eliminated FROM users'
   );
   const totalPlayers = allUsers.length;
   const alivePlayers = allUsers.filter(u => u.is_eliminated === 0);
