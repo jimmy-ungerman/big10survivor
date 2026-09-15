@@ -1,13 +1,11 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { query } from '../db/index.js';
-import { isBigTenTeam, normalizeBigTenName, BIG_TEN_TEAMS } from '../services/espn.js';
+import { normalizeBigTenName, BIG_TEN_TEAMS } from '../services/espn.js';
 import { currentSeason, getCurrentWeek } from '../services/schedule.js';
+import { submitPick, PickError } from '../services/pickSubmission.js';
 
 const router = Router();
-
-const TOTAL_BIG_TEN_TEAMS = 18;
-const TOTAL_WEEKS = 13;
 
 router.get('/', requireAuth, (req, res) => {
   let { week, season } = req.query;
@@ -53,144 +51,15 @@ router.post('/', requireAuth, (req, res) => {
   const { gameId, pickedTeam } = req.body;
   const userId = req.user.userId;
 
-  if (!gameId || !pickedTeam) {
-    return res.status(400).json({ error: 'gameId and pickedTeam required' });
-  }
-
-  if (!['home', 'away'].includes(pickedTeam)) {
-    return res.status(400).json({ error: 'pickedTeam must be "home" or "away"' });
-  }
-
-  // Fetch game
-  const { rows: gameRows } = query('SELECT * FROM games WHERE id = $1', [gameId]);
-  if (gameRows.length === 0) {
-    return res.status(404).json({ error: 'Game not found' });
-  }
-  const game = gameRows[0];
-
-  // Check game hasn't started
-  const now = new Date();
-  const kickoff = new Date(game.commence_time);
-  if (now >= kickoff) {
-    return res.status(400).json({ error: 'Game has already started — picks are locked' });
-  }
-
-  // Check user is not eliminated
-  const { rows: userRows } = query('SELECT * FROM users WHERE id = $1', [userId]);
-  const user = userRows[0];
-  if (user.is_eliminated) {
-    return res.status(400).json({ error: 'You have been eliminated from the pool' });
-  }
-
-  // Check the picked team is a Big Ten team
-  const pickedTeamName = pickedTeam === 'home' ? game.home_team : game.away_team;
-  if (!isBigTenTeam(pickedTeamName)) {
-    return res.status(400).json({ error: 'You can only pick Big Ten teams' });
-  }
-
-  // Normalize the team name
-  const normalizedTeamName = normalizeBigTenName(pickedTeamName);
-
-  // Check user hasn't already picked this game
-  const { rows: existingGamePick } = query(
-    'SELECT id FROM picks WHERE user_id = $1 AND game_id = $2',
-    [userId, gameId]
-  );
-  if (existingGamePick.length > 0) {
-    return res.status(400).json({ error: 'You already have a pick for this game' });
-  }
-
-  // Check user hasn't already used this team this season
-  const { rows: usedTeamPicks } = query(
-    `SELECT p.id FROM picks p
-     JOIN games g ON p.game_id = g.id
-     WHERE p.user_id = $1
-       AND p.season = $2
-       AND (
-         (p.picked_team = 'home' AND g.home_team LIKE $3)
-         OR (p.picked_team = 'away' AND g.away_team LIKE $3)
-       )`,
-    [userId, game.season, `%${normalizedTeamName}%`]
-  );
-  if (usedTeamPicks.length > 0) {
-    return res.status(400).json({ error: `You have already used ${normalizedTeamName} this season` });
-  }
-
-  // Check user hasn't exceeded 2 picks this week
-  const { rows: weekPicks } = query(
-    'SELECT id FROM picks WHERE user_id = $1 AND week_number = $2 AND season = $3',
-    [userId, game.week_number, game.season]
-  );
-  if (weekPicks.length >= 2) {
-    return res.status(400).json({ error: 'You can only make 2 picks per week' });
-  }
-
-  // If this would be a second pick this week (a double), enforce the 5-week cap
-  if (weekPicks.length === 1) {
-    const { rows: doubleWeeks } = query(
-      `SELECT week_number FROM picks
-       WHERE user_id = $1 AND season = $2
-       GROUP BY week_number
-       HAVING COUNT(*) >= 2`,
-      [userId, game.season]
-    );
-    if (doubleWeeks.length >= 5) {
-      return res.status(400).json({ error: 'You have already used all 5 double-pick weeks this season' });
+  try {
+    const { pick, warning } = submitPick({ userId, gameId, pickedTeam });
+    res.json({ pick, warning });
+  } catch (err) {
+    if (err instanceof PickError) {
+      return res.status(err.status).json({ error: err.message });
     }
+    throw err;
   }
-
-  // Insert pick
-  const result = query(
-    `INSERT INTO picks (user_id, game_id, week_number, season, picked_team)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [userId, gameId, game.week_number, game.season, pickedTeam]
-  );
-
-  const { rows: newPick } = query(
-    `SELECT p.*, g.home_team, g.away_team, g.home_abbr, g.away_abbr,
-            g.commence_time, g.status as game_status
-     FROM picks p JOIN games g ON p.game_id = g.id
-     WHERE p.id = $1`,
-    [result.lastInsertRowid]
-  );
-
-  // Check if we need to warn about running low on teams
-  const { rows: allSeasonPicks } = query(
-    `SELECT DISTINCT
-       CASE WHEN p.picked_team = 'home' THEN g.home_team ELSE g.away_team END as team
-     FROM picks p
-     JOIN games g ON p.game_id = g.id
-     WHERE p.user_id = $1 AND p.season = $2`,
-    [userId, game.season]
-  );
-
-  const teamsUsed = allSeasonPicks.length;
-  const teamsRemaining = TOTAL_BIG_TEN_TEAMS - teamsUsed;
-
-  // Determine current week and weeks remaining
-  const { rows: maxWeekRow } = query(
-    'SELECT MAX(week_number) as max_week FROM games WHERE season = $1',
-    [game.season]
-  );
-  const currentWeek = game.week_number;
-  const weeksRemaining = TOTAL_WEEKS - currentWeek;
-
-  let warning = null;
-  if (teamsRemaining <= weeksRemaining && weeksRemaining > 0) {
-    warning = `Warning: You only have ${teamsRemaining} teams remaining for ${weeksRemaining} weeks. You must double-pick every remaining week.`;
-  }
-
-  const pick = newPick[0];
-  res.json({
-    pick: {
-      ...pick,
-      picked_team_name: pick.picked_team === 'home'
-        ? normalizeBigTenName(pick.home_team) || pick.home_team
-        : normalizeBigTenName(pick.away_team) || pick.away_team,
-      picked_team_abbr: pick.picked_team === 'home' ? pick.home_abbr : pick.away_abbr,
-    },
-    warning,
-  });
 });
 
 router.delete('/:pickId', requireAuth, (req, res) => {

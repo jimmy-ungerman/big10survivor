@@ -27,9 +27,28 @@ export default function PlanningSheet() {
         setScheduleData(schedResult);
         setActualPicks(picksResult.picks || []);
 
+        // The server copy is authoritative going forward — the auto-picker
+        // cron reads planned picks from there, not from localStorage, so it
+        // can submit them even if this tab never loads. localStorage is kept
+        // only as a fallback: a plan made before this existed gets migrated
+        // up the first time it's seen here.
+        let serverPlan = {};
+        try {
+          const planResult = await api.getPlan(schedResult.season);
+          serverPlan = planResult.planData || {};
+        } catch {}
+
+        let localPlan = {};
         const stored = localStorage.getItem(`big10survivor-plan-${schedResult.season}`);
         if (stored) {
-          try { setPlanData(JSON.parse(stored)); } catch {}
+          try { localPlan = JSON.parse(stored); } catch {}
+        }
+
+        if (Object.keys(serverPlan).length > 0) {
+          setPlanData(serverPlan);
+        } else if (Object.keys(localPlan).length > 0) {
+          setPlanData(localPlan);
+          api.savePlan(schedResult.season, localPlan).catch(() => {});
         }
       } catch (err) {
         setError(err.message);
@@ -43,6 +62,9 @@ export default function PlanningSheet() {
   useEffect(() => {
     if (!scheduleData) return;
     localStorage.setItem(`big10survivor-plan-${scheduleData.season}`, JSON.stringify(planData));
+    // Best-effort — if this fails, the next edit (or the next page load's
+    // migration check) will retry with the latest state anyway.
+    api.savePlan(scheduleData.season, planData).catch(() => {});
   }, [planData, scheduleData]);
 
   // week -> team -> { opponentAbbr, isHome, game }

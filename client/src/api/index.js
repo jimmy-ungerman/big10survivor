@@ -45,4 +45,6 @@ export const api = {
   setUserFullName: (userId, fullName) => request('PATCH', `/admin/users/${userId}/full-name`, { fullName }),
   getSplit: () => request('GET', '/split'),
   castSplitVote: (vote) => request('POST', '/split', { vote }),
+  getPlan: (season) => request('GET', `/plan?season=${season}`),
+  savePlan: (season, planData) => request('PUT', '/plan', { season, planData }),
 };

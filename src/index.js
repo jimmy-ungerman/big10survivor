@@ -13,7 +13,9 @@ import picksRouter from './routes/picks.js';
 import leaderboardRouter from './routes/leaderboard.js';
 import adminRouter from './routes/admin.js';
 import splitRouter from './routes/split.js';
+import planRouter from './routes/plan.js';
 import { startScoreUpdater } from './jobs/scoreUpdater.js';
+import { startAutoPicker } from './jobs/autoPicker.js';
 import { startScheduleSeeder } from './services/schedule.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -36,6 +38,7 @@ app.use('/api/picks', picksRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/split', splitRouter);
+app.use('/api/plan', planRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -62,6 +65,7 @@ if (process.env.NODE_ENV === 'production') {
 initDb();
 startScheduleSeeder();
 startScoreUpdater();
+startAutoPicker();
 
 app.listen(PORT, () => {
   console.log(`Big 10 Survivor server running on port ${PORT}`);
