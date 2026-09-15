@@ -38,6 +38,19 @@ CREATE TABLE IF NOT EXISTS split_votes (
   UNIQUE(user_id, season)
 );
 
+-- A player's planned-but-not-yet-locked picks (the Plan tab), synced up from
+-- localStorage. The auto-picker cron (src/jobs/autoPicker.js) converts these
+-- into real picks once the game's week goes live and hasn't kicked off yet.
+CREATE TABLE IF NOT EXISTS planned_picks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  season INTEGER NOT NULL,
+  week_number INTEGER NOT NULL,
+  team_name TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, season, team_name)
+);
+
 CREATE TABLE IF NOT EXISTS picks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
