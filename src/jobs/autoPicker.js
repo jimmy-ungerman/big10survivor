@@ -10,9 +10,18 @@ import { submitPick, PickError } from '../services/pickSubmission.js';
 //
 // Fires every 5 minutes for whatever week is currently active (not just at
 // the exact moment it becomes active), so a planned pick added mid-week still
-// gets picked up before its game locks. Naturally idempotent: submitPick()
-// rejects a game the user already has a pick for, so re-running against an
-// already-applied plan is a harmless no-op.
+// gets picked up before its game locks.
+//
+// A planned_picks row is a one-shot fulfillment request, not a standing
+// instruction: the moment submitPick() succeeds for it, it's deleted. This
+// matters for exactly one case — if a player later deletes that auto-created
+// pick on the Pick Sheet and picks something else instead, a *retried*
+// planned row would fight them on the next cron tick (re-inserting the
+// team they just backed out of, silently burning a 2nd pick for that week).
+// Deleting on success means there's nothing left to retry, so a manual
+// change always wins once it's been delivered once. A *failed* attempt
+// (cap reached, team already used some other way, etc.) leaves the row in
+// place so it keeps getting retried — it hasn't been delivered yet.
 export async function applyPlannedPicks() {
   try {
     const season = currentSeason();
@@ -20,7 +29,7 @@ export async function applyPlannedPicks() {
     if (!week) return;
 
     const { rows: planned } = query(
-      `SELECT pp.user_id, pp.team_name
+      `SELECT pp.id, pp.user_id, pp.team_name
        FROM planned_picks pp
        JOIN users u ON u.id = pp.user_id
        WHERE pp.season = $1 AND pp.week_number = $2 AND u.is_eliminated = 0`,
@@ -46,11 +55,13 @@ export async function applyPlannedPicks() {
 
       try {
         submitPick({ userId: row.user_id, gameId: game.id, pickedTeam });
+        query('DELETE FROM planned_picks WHERE id = $1', [row.id]);
         console.log(`Auto-picked ${row.team_name} (week ${week}) for user ${row.user_id}`);
       } catch (err) {
         // Expected/benign: already picked this game, team already used some
-        // other way, at the weekly/double-pick cap, etc. Anything else is
-        // worth knowing about.
+        // other way, at the weekly/double-pick cap, etc. — leave the row in
+        // place for the next tick to retry. Anything else is worth knowing
+        // about.
         if (!(err instanceof PickError)) {
           console.error('Auto-picker submitPick error:', err);
         }
