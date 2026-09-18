@@ -81,6 +81,23 @@ export default function WeekView() {
     return a.username.localeCompare(b.username);
   });
 
+  // Group picks by team to see which team's loss would eliminate the most people
+  const teamMap = {};
+  for (const pick of picks) {
+    const key = pick.picked_team_name;
+    if (!teamMap[key]) {
+      teamMap[key] = {
+        teamName: key,
+        count: 0,
+        result: pick.result,
+        gameStatus: pick.game_status,
+      };
+    }
+    teamMap[key].count += 1;
+  }
+  const teamCounts = Object.values(teamMap).sort((a, b) => b.count - a.count);
+  const maxTeamCount = teamCounts.length > 0 ? teamCounts[0].count : 0;
+
   if (userGroups.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
@@ -95,6 +112,29 @@ export default function WeekView() {
         <h2 className="text-xl font-bold text-white">Week {week} Picks</h2>
         <span className="text-sm text-gray-500">{season} Season</span>
       </div>
+
+      {teamCounts.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <h3 className="text-sm font-semibold text-gray-400 mb-3">
+            Team Popularity — a loss here causes the most chaos
+          </h3>
+          <div className="space-y-2">
+            {teamCounts.map(({ teamName, count, result, gameStatus }) => (
+              <div key={teamName} className="flex items-center gap-3">
+                <ResultBadge result={result} gameStatus={gameStatus} />
+                <span className="text-sm text-white flex-1 truncate">{teamName}</span>
+                <div className="w-24 sm:w-32 h-2 bg-gray-800 rounded overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500"
+                    style={{ width: `${maxTeamCount > 0 ? (count / maxTeamCount) * 100 : 0}%` }}
+                  />
+                </div>
+                <span className="text-xs text-gray-400 w-6 text-right">{count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {userGroups.map(({ userId, username, picks: userPicks }) => {
