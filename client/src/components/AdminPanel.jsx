@@ -86,6 +86,74 @@ function ResetResultBanner({ result, onDismiss }) {
   );
 }
 
+function MissingPicksReport() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.getMissingPicks()
+      .then(setData)
+      .catch(() => setError('Failed to load missing picks'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-sm text-gray-400">
+        Loading missing picks...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-950/40 border border-red-800 rounded-xl p-3 text-red-400 text-sm">
+        {error}
+      </div>
+    );
+  }
+
+  const { week, missing, totalActive, nextKickoff } = data;
+  const submittedCount = totalActive - missing.length;
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <h3 className="text-sm font-semibold text-white">Missing picks — Week {week}</h3>
+        <span className="text-xs text-gray-500">
+          {submittedCount}/{totalActive} submitted
+          {nextKickoff && ` · kickoff ${new Date(nextKickoff).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`}
+        </span>
+      </div>
+
+      {missing.length === 0 ? (
+        <p className="text-sm text-green-400">Everyone still alive has picked this week.</p>
+      ) : (
+        <ul className="space-y-2">
+          {missing.map(u => (
+            <li key={u.id} className="flex items-center justify-between gap-3 text-sm">
+              <div>
+                <span className="text-white font-medium">{u.fullName}</span>
+                <span className="text-gray-500 ml-1.5">@{u.username}</span>
+              </div>
+              {u.plannedTeams.length > 0 ? (
+                <span className="text-xs text-amber-400 bg-amber-950/40 border border-amber-800 px-2 py-0.5 rounded whitespace-nowrap">
+                  Queued: {u.plannedTeams.join(', ')}
+                </span>
+              ) : (
+                <span className="text-xs text-red-400 bg-red-950/40 border border-red-800 px-2 py-0.5 rounded whitespace-nowrap">
+                  No pick queued
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export default function AdminPanel() {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -207,6 +275,8 @@ export default function AdminPanel() {
           <button onClick={() => setError('')} className="text-red-300 hover:text-white ml-3">✕</button>
         </div>
       )}
+
+      <MissingPicksReport />
 
       {/* Add a player manually (for people who paid/picked after registration locked) */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
