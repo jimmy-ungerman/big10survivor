@@ -66,19 +66,20 @@ export function submitPick({ userId, gameId, pickedTeam }) {
     throw new PickError(400, 'You already have a pick for this game');
   }
 
-  // Check user hasn't already used this team this season
-  const { rows: usedTeamPicks } = query(
-    `SELECT p.id FROM picks p
+  // Check user hasn't already used this team this season. Compares normalized
+  // (exact) team names in JS rather than a SQL LIKE — a substring match would
+  // wrongly treat "Michigan" as already used by a "Michigan State" pick.
+  const { rows: seasonPickTeams } = query(
+    `SELECT p.picked_team, g.home_team, g.away_team FROM picks p
      JOIN games g ON p.game_id = g.id
-     WHERE p.user_id = $1
-       AND p.season = $2
-       AND (
-         (p.picked_team = 'home' AND g.home_team LIKE $3)
-         OR (p.picked_team = 'away' AND g.away_team LIKE $3)
-       )`,
-    [userId, game.season, `%${normalizedTeamName}%`]
+     WHERE p.user_id = $1 AND p.season = $2`,
+    [userId, game.season]
   );
-  if (usedTeamPicks.length > 0) {
+  const alreadyUsedTeam = seasonPickTeams.some(p => {
+    const rawName = p.picked_team === 'home' ? p.home_team : p.away_team;
+    return normalizeBigTenName(rawName) === normalizedTeamName;
+  });
+  if (alreadyUsedTeam) {
     throw new PickError(400, `You have already used ${normalizedTeamName} this season`);
   }
 
