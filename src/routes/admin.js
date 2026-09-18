@@ -2,8 +2,60 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { requireAdmin } from '../middleware/auth.js';
 import { query } from '../db/index.js';
+import { currentSeason, getCurrentWeek } from '../services/schedule.js';
 
 const router = Router();
+
+// Which active (non-eliminated) players haven't submitted a pick for a given
+// week yet. Defaults to the current week/season (see services/schedule.js).
+// Also surfaces queued Plan-tab picks so the admin can see who's covered by
+// auto-submit (see jobs/autoPicker.js) vs. truly missing.
+router.get('/missing-picks', requireAdmin, (req, res) => {
+  const season = req.query.season ? Number(req.query.season) : currentSeason();
+  const week = req.query.week ? Number(req.query.week) : getCurrentWeek(season);
+
+  const { rows: users } = query(
+    'SELECT id, username, full_name FROM users WHERE is_eliminated = 0 ORDER BY username ASC'
+  );
+
+  const { rows: picks } = query(
+    'SELECT DISTINCT user_id FROM picks WHERE week_number = $1 AND season = $2',
+    [week, season]
+  );
+  const pickedUserIds = new Set(picks.map(p => p.user_id));
+
+  const { rows: planned } = query(
+    'SELECT user_id, team_name FROM planned_picks WHERE week_number = $1 AND season = $2',
+    [week, season]
+  );
+  const plannedByUser = new Map();
+  for (const p of planned) {
+    if (!plannedByUser.has(p.user_id)) plannedByUser.set(p.user_id, []);
+    plannedByUser.get(p.user_id).push(p.team_name);
+  }
+
+  const { rows: kickoffRows } = query(
+    'SELECT MIN(commence_time) AS next_kickoff FROM games WHERE season = $1 AND week_number = $2',
+    [season, week]
+  );
+
+  const missing = users
+    .filter(u => !pickedUserIds.has(u.id))
+    .map(u => ({
+      id: u.id,
+      username: u.username,
+      fullName: u.full_name,
+      plannedTeams: plannedByUser.get(u.id) || [],
+    }));
+
+  res.json({
+    week,
+    season,
+    missing,
+    totalActive: users.length,
+    nextKickoff: kickoffRows[0]?.next_kickoff ?? null,
+  });
+});
 
 // Manually create an account (for people who registered out-of-band after the
 // registration lock). They log in with the temp password and are forced to

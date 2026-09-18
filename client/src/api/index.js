@@ -43,6 +43,7 @@ export const api = {
     request('POST', `/admin/users/${userId}/reset-password`, { tempPassword }),
   setUserPaid: (userId, paid) => request('PATCH', `/admin/users/${userId}/paid`, { paid }),
   setUserFullName: (userId, fullName) => request('PATCH', `/admin/users/${userId}/full-name`, { fullName }),
+  getMissingPicks: () => request('GET', '/admin/missing-picks'),
   getSplit: () => request('GET', '/split'),
   castSplitVote: (vote) => request('POST', '/split', { vote }),
   getPlan: (season) => request('GET', `/plan?season=${season}`),
