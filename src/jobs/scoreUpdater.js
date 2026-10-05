@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { query } from '../db/index.js';
 import { fetchLiveScores } from '../services/espn.js';
 import { calculateResult } from '../services/results.js';
+import { currentSeason } from '../services/schedule.js';
 
 async function updateScores() {
   try {
@@ -64,6 +65,10 @@ async function updateScores() {
       const [season, weekNumber] = weekKey.split('-').map(Number);
       await checkEliminations(season, weekNumber);
     }
+
+    // Also eliminate anyone still active who never submitted a pick, once
+    // every game in their week has kicked off (so there's no chance left to).
+    checkMissingPicks(currentSeason());
   } catch (err) {
     console.error('Score updater error:', err);
   }
@@ -98,6 +103,43 @@ async function checkEliminations(season, weekNumber) {
         [weekNumber, loser.user_id]
       );
       console.log(`User ${loser.user_id} eliminated in week ${weekNumber}`);
+    }
+  }
+}
+
+// A player who never submits a pick for a week isn't caught by checkEliminations
+// (which only looks at losses on existing pick rows). Once the last game of a
+// week has kicked off, nobody can submit a pick for it anymore, so any active
+// user with zero picks for that week has effectively picked nothing and is out.
+function checkMissingPicks(season) {
+  const { rows: weeks } = query(
+    `SELECT week_number, MAX(commence_time) AS last_kickoff
+     FROM games
+     WHERE season = $1
+     GROUP BY week_number`,
+    [season]
+  );
+
+  const now = new Date();
+
+  for (const week of weeks) {
+    if (new Date(week.last_kickoff) > now) continue; // still time to pick
+
+    const { rows: missing } = query(
+      `SELECT id FROM users
+       WHERE is_eliminated = 0
+         AND id NOT IN (
+           SELECT DISTINCT user_id FROM picks WHERE week_number = $1 AND season = $2
+         )`,
+      [week.week_number, season]
+    );
+
+    for (const user of missing) {
+      query(
+        `UPDATE users SET is_eliminated = 1, eliminated_week = $1 WHERE id = $2`,
+        [week.week_number, user.id]
+      );
+      console.log(`User ${user.id} auto-eliminated for not picking in week ${week.week_number}`);
     }
   }
 }
