@@ -137,8 +137,17 @@ export function submitPick({ userId, gameId, pickedTeam }) {
   const currentWeek = game.week_number;
   const weeksRemaining = TOTAL_WEEKS - currentWeek;
 
+  const { rows: seasonDoubleWeeks } = query(
+    `SELECT week_number FROM picks
+     WHERE user_id = $1 AND season = $2
+     GROUP BY week_number
+     HAVING COUNT(*) >= 2`,
+    [userId, game.season]
+  );
+  const doublePickWeeksUsed = seasonDoubleWeeks.length;
+
   let warning = null;
-  if (teamsRemaining <= weeksRemaining && weeksRemaining > 0) {
+  if (doublePickWeeksUsed < 5 && teamsRemaining <= weeksRemaining && weeksRemaining > 0) {
     warning = `Warning: You only have ${teamsRemaining} teams remaining for ${weeksRemaining} weeks. You must double-pick every remaining week.`;
   }
 
