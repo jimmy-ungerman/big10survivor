@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { query } from '../db/index.js';
 import { ENTRY_FEE } from '../config.js';
+import { getCurrentWeek } from '../services/schedule.js';
 
 const router = Router();
 
@@ -16,6 +17,7 @@ router.get('/', requireAuth, (req, res) => {
     return res.json({ enabled: false });
   }
   const season = latestGame[0].season;
+  const week = getCurrentWeek(season);
 
   // Total players and alive players (admins are real paying/playing
   // participants here — open registration just makes whoever signed up
@@ -29,10 +31,10 @@ router.get('/', requireAuth, (req, res) => {
   const aliveCount = alivePlayers.length;
   const aliveIds = new Set(alivePlayers.map(u => u.id));
 
-  // Current votes this season
+  // Votes reset each week — only this week's votes count.
   const { rows: votes } = query(
-    'SELECT user_id, vote FROM split_votes WHERE season = $1',
-    [season]
+    'SELECT user_id, vote FROM split_votes WHERE season = $1 AND week_number = $2',
+    [season, week]
   );
 
   // Only count votes from currently alive players
@@ -46,6 +48,7 @@ router.get('/', requireAuth, (req, res) => {
 
   res.json({
     season,
+    week,
     entryFee: ENTRY_FEE,
     totalPlayers,
     aliveCount,
@@ -77,12 +80,13 @@ router.post('/', requireAuth, (req, res) => {
   );
   if (latestGame.length === 0) return res.status(400).json({ error: 'No active season' });
   const season = latestGame[0].season;
+  const week = getCurrentWeek(season);
 
   query(
-    `INSERT INTO split_votes (user_id, season, vote, updated_at)
-     VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-     ON CONFLICT(user_id, season) DO UPDATE SET vote = $3, updated_at = CURRENT_TIMESTAMP`,
-    [userId, season, vote ? 1 : 0]
+    `INSERT INTO split_votes (user_id, season, week_number, vote, updated_at)
+     VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+     ON CONFLICT(user_id, season, week_number) DO UPDATE SET vote = $4, updated_at = CURRENT_TIMESTAMP`,
+    [userId, season, week, vote ? 1 : 0]
   );
 
   res.json({ ok: true, vote });

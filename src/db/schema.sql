@@ -29,13 +29,16 @@ CREATE TABLE IF NOT EXISTS games (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Scoped by week_number (not just season) so a vote only applies to the week
+-- it was cast in — once the active week advances, players must vote again.
 CREATE TABLE IF NOT EXISTS split_votes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   season INTEGER NOT NULL,
+  week_number INTEGER NOT NULL,
   vote INTEGER NOT NULL DEFAULT 0,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(user_id, season)
+  UNIQUE(user_id, season, week_number)
 );
 
 -- A player's planned-but-not-yet-locked picks (the Plan tab), synced up from

@@ -44,11 +44,31 @@ export function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       season INTEGER NOT NULL,
+      week_number INTEGER NOT NULL,
       vote INTEGER NOT NULL DEFAULT 0,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(user_id, season)
+      UNIQUE(user_id, season, week_number)
     )`);
   } catch {}
+
+  // Older split_votes tables predate week_number and are keyed UNIQUE(user_id,
+  // season) only — rebuild them so votes scope to a week and reset when it
+  // advances. Prior votes are transient UI state, not worth preserving.
+  const { rows: splitVotesCols } = query(`PRAGMA table_info(split_votes)`);
+  if (!splitVotesCols.some(c => c.name === 'week_number')) {
+    db.exec(`
+      DROP TABLE split_votes;
+      CREATE TABLE split_votes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        season INTEGER NOT NULL,
+        week_number INTEGER NOT NULL,
+        vote INTEGER NOT NULL DEFAULT 0,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, season, week_number)
+      );
+    `);
+  }
 
   console.log('Database initialized');
 }
