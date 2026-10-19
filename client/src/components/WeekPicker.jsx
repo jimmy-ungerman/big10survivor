@@ -184,9 +184,9 @@ export default function WeekPicker() {
   const TOTAL_WEEKS = 13;
   const weeksRemaining = week ? TOTAL_WEEKS - week : 0;
   const teamsRemaining = remainingTeams.length;
-  const needsDoublePick = teamsRemaining <= weeksRemaining && weeksRemaining > 0;
-  const atDoubleCap = doublePickWeeksUsed >= 5 && myPicks.length >= 1;
   const doublePickWeeksNeeded = Math.max(0, 5 - doublePickWeeksUsed);
+  const needsDoublePick = doublePickWeeksNeeded > 0 && teamsRemaining <= weeksRemaining && weeksRemaining > 0;
+  const atDoubleCap = doublePickWeeksUsed >= 5 && myPicks.length >= 1;
 
   return (
     <div className="space-y-6">

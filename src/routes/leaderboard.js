@@ -81,7 +81,8 @@ router.get('/', requireAuth, (req, res) => {
 
     const remainingTeams = BIG_TEN_TEAMS.filter(t => !usedTeams.includes(t));
     const weeksRemaining = TOTAL_WEEKS - currentWeek;
-    const needsDoublePick = remainingTeams.length <= weeksRemaining && weeksRemaining > 0;
+    const doublePickWeeksUsed = Object.values(weekGroups).filter(picks => picks.length >= 2).length;
+    const needsDoublePick = doublePickWeeksUsed < 5 && remainingTeams.length <= weeksRemaining && weeksRemaining > 0;
 
     // For eliminated players, find the losing picks from their eliminated week
     const eliminationPicks = user.is_eliminated === 1
