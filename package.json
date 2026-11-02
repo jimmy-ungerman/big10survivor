@@ -1,6 +1,6 @@
 {
   "name": "big10survivor",
-  "version": "1.15.7",
+  "version": "1.15.8",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"node src/index.js\" \"vite\"",
